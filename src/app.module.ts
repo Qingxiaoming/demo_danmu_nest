@@ -4,8 +4,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { User } from './model/user.model';
+import { Danmu } from './model/danmu.model';
 import { ExceptionCatchFilter } from './core/filter/exception';
 import { UserModule } from './modules/user/user.module';
+import { DanmuModule } from './modules/danmu/danmu.module';
 
 @Module({
   imports: [
@@ -16,11 +18,12 @@ import { UserModule } from './modules/user/user.module';
       username: 'root',
       password: 'admin123',
       database: 'b_schema',
-      models: [User],
+      models: [User, Danmu],
       autoLoadModels: true,
       synchronize: true,
     }),
-    UserModule
+    UserModule,
+    DanmuModule
   ],
   controllers: [AppController],
   providers: [AppService, ExceptionCatchFilter]

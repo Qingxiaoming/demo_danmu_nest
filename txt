@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>----</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 16px;
+        }
+
+        .login-container, .toggle-container {
+            display: inline-block; /* 让容器在同一行显示 */
+            margin-right: 10px; /* 添加一些间距 */
+        }
+
+        .login-container input, .login-container button, .toggle-container button {
+            vertical-align: top; /* 对齐元素 */
+        }
+
+        .danmu-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            position: relative; /* 为子元素的绝对定位提供参考 */
+        }
+
+        .danmu-item .nickname {
+            font-weight: bold;
+        }
+
+        .danmu-item .text {
+            margin-left: 5px; /* 与昵称的间距 */
+        }
+
+        .danmu-item .status {
+            font-weight: bold;
+            color: blue;
+            font-style: italic;
+            position: absolute;
+            top: 10px; /* 距离顶部的间距 */
+            right: 10px; /* 距离右侧的间距 */
+        }
+
+        .danmu-item .createtime {
+            color: #555;
+            display: block; /* 独占一行 */
+            margin-top: 5px; /* 与上一行的间距 */
+        }
+
+        .danmu-item .actions {
+            position: absolute;
+            bottom: 0;
+            right: 0; /* 将按钮放置在右下角 */
+            display: flex;
+            gap: 5px; /* 按钮之间的间距 */
+        }
+
+        .danmu-item .actions button {
+            margin-right: 10px;
+        }
+
+        .acps-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+        .acps-dialog h3 {
+            margin-top: 0;
+        }
+
+        .acps-dialog ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .acps-dialog li {
+            cursor: pointer;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .acps-dialog li.selected {
+            background-color: #f0f0f0;
+        }
+
+        .acps-dialog input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .acps-dialog button {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1></h1>
+    <div class="login-container">
+        <input type="password" id="login-password" placeholder="输入密码">
+        <button id="login-btn">Start</button>
+    </div>
+    <div class="toggle-container">
+        <button id="toggle-btn">O</button>
+    </div>
+    <div id="danmu-container"></div>
+
+    <script>
+        const danmuContainer = document.getElementById('danmu-container');
+        const socket = new WebSocket('ws://127.0.0.1:80');
+        let userRole = 'guest'; // 默认为游客模式
+        let showNonWaiting = true; // 默认显示所有状态
+
+        socket.onopen = () => {
+            console.log('连接到 WebSocket 服务器');
+        };
+        
+        document.getElementById('login-btn').onclick = () => {
+            const password = document.getElementById('login-password').value;
+            if (password === '942291') { // 假设密码为 '942291'
+                userRole = 'owner'; // 切换到主人模式
+                //alert('已切换');
+                renderDanmu(); // 重新渲染弹幕，显示按钮
+            } else {
+                alert('密码错误');
+            }
+        };
+
+        document.getElementById('toggle-btn').onclick = () => {
+            showNonWaiting = !showNonWaiting; // 切换显示/隐藏状态
+            renderDanmu(); // 重新渲染弹幕
+        };
+
+        function showAccountPasswordDialog(data, uid) {
+            const dialog = document.createElement('div');
+            dialog.className = 'acps-dialog';
+            dialog.innerHTML = `
+                <h3>编辑账号密码</h3>
+                <p><span id="current-account">${data.account}</span></p>
+                <p><span id="current-password">${data.password}</span></p>
+                <input type="text" id="acps-edit" placeholder="输入新的账号或密码">
+                <button id="acps-save">保存</button>
+                <button id="acps-cancel">取消</button>
+            `;
+
+            const saveButton = dialog.querySelector('#acps-save');
+            const cancelButton = dialog.querySelector('#acps-cancel');
+            const inputField = dialog.querySelector('#acps-edit');
+
+            saveButton.onclick = () => {
+                const newText = inputField.value;
+                if (newText) {
+                    socket.send(JSON.stringify({
+                        action: 'update_acps',
+                        index: uid,
+                        text: newText
+                    }));
+                    dialog.remove();
+                } else {
+                    //alert('请输入新的账号或密码');
+                }
+            };
+
+            cancelButton.onclick = () => {
+                dialog.remove();
+            };
+
+            document.body.appendChild(dialog);
+        }
+
+        socket.onmessage = (event) => {
+            const response = JSON.parse(event.data);
+
+            if (response.action === 'get_acps') {
+                showAccountPasswordDialog(response.data[0], response.uid);
+            } else if (response.action === 'update_acps') {
+                if (response.success) {
+                    //alert('账号密码更新成功');
+                } else {
+                    //alert('账号密码更新失败');
+                }
+            }
+            renderDanmu(response);
+        };
+
+        function renderDanmu(data) {
+            danmuContainer.innerHTML = ''; // 清空现有内容
+            data.uid.forEach((uid, index) => {
+                if (!showNonWaiting && data.status[index] !== 'waiting') {
+                    return; // 如果隐藏非等待状态且当前状态不是 'waiting'，则跳过
+                }
+
+                const item = document.createElement('div');
+                item.className = 'danmu-item';
+
+                // 昵称
+                const nickname = document.createElement('span');
+                nickname.textContent = `${data.nickname[index]}: `;
+                nickname.className = 'nickname';
+
+                // 弹幕内容
+                const text = document.createElement('span');
+                text.textContent = `${data.text[index]}`;
+                text.className = 'text';
+
+                // 状态
+                const status = document.createElement('span');
+                status.textContent = `      ${data.status[index]}`;
+                status.className = 'status';
+
+                // 创建时间
+                const createtime = document.createElement('span');
+                createtime.textContent = `----${data.createtime[index]}`;
+                createtime.className = 'createtime';
+
+                // 如果用户是“主人”，显示操作按钮
+                if (userRole === 'owner') {
+                    const actions = document.createElement('div');
+                    actions.className = 'actions';
+
+                    // 删除按钮
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '删除';
+                    deleteBtn.onclick = () => {
+                        socket.send(JSON.stringify({
+                            action: 'delete',
+                            index: uid 
+                        }));
+                    };
+
+                    // 编辑按钮
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = '编辑';
+                    editBtn.onclick = () => {
+                        const newText = prompt('请输入新的弹幕内容:', data.text[index]);
+                        if (newText) {
+                            socket.send(JSON.stringify({
+                                action: 'edit',
+                                index: uid, 
+                                text: newText
+                            }));
+                        }
+                    };
+
+                    // 完成按钮
+                    const completedBtn = document.createElement('button');
+                    completedBtn.textContent = '完成';
+                    completedBtn.onclick = () => {
+                        socket.send(JSON.stringify({
+                            action: 'completed',
+                            index: uid 
+                        }));
+                    };
+
+                    // 账密按钮
+                    const ac_ps_Btn = document.createElement('button');
+                    ac_ps_Btn.textContent = '账密';
+                    ac_ps_Btn.onclick = () => {
+                        socket.send(JSON.stringify({
+                            action: 'get_acps',
+                            index: uid
+                        }));
+                    };
+
+                    actions.appendChild(deleteBtn);
+                    actions.appendChild(completedBtn);
+                    actions.appendChild(editBtn);
+                    actions.appendChild(ac_ps_Btn);
+
+                    item.appendChild(actions);
+                }
+
+                item.appendChild(nickname);
+                item.appendChild(text);
+                item.appendChild(status);
+                item.appendChild(createtime);
+
+                danmuContainer.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>

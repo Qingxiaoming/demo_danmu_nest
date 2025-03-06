@@ -24,8 +24,10 @@
     "@nestjs/core": "^10.0.0",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.10",
+    "@nestjs/platform-socket.io": "^11.0.11",
     "@nestjs/sequelize": "^11.0.0",
     "@nestjs/swagger": "^11.0.5",
+    "@nestjs/websockets": "^11.0.11",
     "@types/bcrypt": "^5.0.2",
     "@types/exceljs": "^1.3.2",
     "bcrypt": "^5.1.1",
@@ -38,7 +40,8 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "sequelize": "^6.37.5",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-typescript": "^2.1.6",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
