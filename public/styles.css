@@ -1,0 +1,96 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 16px;
+}
+
+.login-container, .toggle-container {
+    display: inline-block; /* 让容器在同一行显示 */
+    margin-right: 10px; /* 添加一些间距 */
+}
+
+.login-container input, .login-container button, .toggle-container button {
+    vertical-align: top; /* 对齐元素 */
+}
+
+.danmu-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    position: relative; /* 为子元素的绝对定位提供参考 */
+}
+
+.danmu-item .nickname {
+    font-weight: bold;
+}
+
+.danmu-item .text {
+    margin-left: 5px; /* 与昵称的间距 */
+}
+
+.danmu-item .status {
+    font-weight: bold;
+    color: blue;
+    font-style: italic;
+    position: absolute;
+    top: 10px; /* 距离顶部的间距 */
+    right: 10px; /* 距离右侧的间距 */
+}
+
+.danmu-item .createtime {
+    color: #555;
+    display: block; /* 独占一行 */
+    margin-top: 5px; /* 与上一行的间距 */
+}
+
+.danmu-item .actions {
+    position: absolute;
+    bottom: 0;
+    right: 0; /* 将按钮放置在右下角 */
+    display: flex;
+    gap: 5px; /* 按钮之间的间距 */
+}
+
+.danmu-item .actions button {
+    margin-right: 10px;
+}
+
+.acps-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.acps-dialog h3 {
+    margin-top: 0;
+}
+
+.acps-dialog ul {
+    list-style: none;
+    padding: 0;
+}
+
+.acps-dialog li {
+    cursor: pointer;
+    padding: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.acps-dialog li.selected {
+    background-color: #f0f0f0;
+}
+
+.acps-dialog input {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.acps-dialog button {
+    margin-right: 10px;
+}

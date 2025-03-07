@@ -9,4 +9,4 @@ import { Danmu } from '../../model/danmu.model';
   providers: [DanmuGateway, DanmuService],
 })
 
-export class DanmuModule {}
+export class DanmuModule {}  

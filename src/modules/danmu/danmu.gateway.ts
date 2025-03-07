@@ -43,7 +43,11 @@ export class DanmuGateway implements OnGatewayInit {
 
   @SubscribeMessage('get_acps')
   async handleGetAcps(@MessageBody() data: { index: string }) {
-    return await this.danmuService.getAccountPassword(data.index);
+    const result = await this.danmuService.getAccountPassword(data.index);
+    console.log('handleGetAcps函数返回值:', result);
+    // 只使用server.emit发送事件，不通过return返回数据
+    this.server.emit('get_acps', result);
+    return { success: true };
   }
 
   @SubscribeMessage('update_acps')

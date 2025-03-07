@@ -37,7 +37,10 @@ export class DanmuService {
         where: { uid },
         attributes: ['account', 'password']
       });
-      return { action: 'get_acps', data: result ? [result] : [], uid };
+      console.log('查询到的账号密码:', result.account, result.password);
+      const returnData = { action: 'get_acps', data: {account: result.account, password: result.password}, uid };
+      console.log('发送给前端的账号密码数据:', returnData);
+      return returnData;
     } catch (err) {
       console.error('查询账号密码失败:', err);
       return { action: 'get_acps', data: 1 };
