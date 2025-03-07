@@ -15,8 +15,29 @@
     <div class="toggle-container">
         <button id="toggle-btn">O</button>
     </div>
+    <div id="password-error" class="error-message"></div>
     <div id="danmu-container"></div>
-
+    <style>
+        .login-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-message {
+            color: #ff4444;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: white;
+            padding: 5px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-left: 8px;
+        }
+        .error-message.show {
+            opacity: 1;
+        }
+    </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const danmuContainer = document.getElementById('danmu-container');
@@ -30,13 +51,21 @@
         
         document.getElementById('login-btn').onclick = () => {
             const password = document.getElementById('login-password').value;
-            if (password === '942291') { // 假设密码为 '942291'
-                userRole = 'owner'; // 切换到主人模式
-                //alert('已切换');
-                renderDanmu(); // 重新渲染弹幕，显示按钮
-            } else {
-                alert('密码错误');
-            }
+            socket.emit('verify_password', { password });
+            socket.once('verify_password', (response) => {
+                if (response.success) {
+                    userRole = 'owner';
+                    renderDanmu();
+                    document.getElementById('password-error').classList.remove('show');
+                } else {
+                    const errorElement = document.getElementById('password-error');
+                    errorElement.textContent = response.message || '密码错误';
+                    errorElement.classList.add('show');
+                    setTimeout(() => {
+                        errorElement.classList.remove('show');
+                    }, 3000);
+                }
+            });
         };
 
         document.getElementById('toggle-btn').onclick = () => {
@@ -121,6 +150,11 @@
             data.uid.forEach((uid, index) => {
                 if (!showNonWaiting && data.status[index] !== 'waiting') {
                     return; // 如果隐藏非等待状态且当前状态不是 'waiting'，则跳过
+                }
+                
+                // 如果状态为notdisplay，跳过该项不显示
+                if (data.status[index] === 'notdisplay') {
+                    return;
                 }
 
                 const item = document.createElement('div');

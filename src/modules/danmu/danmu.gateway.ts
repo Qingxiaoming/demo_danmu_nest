@@ -28,32 +28,46 @@ export class DanmuGateway implements OnGatewayInit {
 
   @SubscribeMessage('delete')
   async handleDelete(@MessageBody() data: { index: string }) {
-    return await this.danmuService.updateStatus(data.index, 'deleted');
+    const result = await this.danmuService.updateStatus(data.index, 'deleted');
+    this.server.emit('delete', result);
+    return { success: true };
   }
 
   @SubscribeMessage('completed')
   async handleCompleted(@MessageBody() data: { index: string }) {
-    return await this.danmuService.updateStatus(data.index, 'completed');
+    const result = await this.danmuService.updateStatus(data.index, 'completed');
+    this.server.emit('completed', result);
+    return { success: true };
   }
 
   @SubscribeMessage('edit')
   async handleEdit(@MessageBody() data: { index: string; text: string }) {
-    return await this.danmuService.updateText(data.index, data.text);
+    const result = await this.danmuService.updateText(data.index, data.text);
+    this.server.emit('edit', result);
+    return { success: true };
   }
 
   @SubscribeMessage('get_acps')
   async handleGetAcps(@MessageBody() data: { index: string }) {
     const result = await this.danmuService.getAccountPassword(data.index);
     console.log('handleGetAcps函数返回值:', result);
-    // 只使用server.emit发送事件，不通过return返回数据
     this.server.emit('get_acps', result);
+    return { success: true };
+  }
+
+  @SubscribeMessage('verify_password')
+  async handleVerifyPassword(@MessageBody() data: { password: string }) {
+    const result = await this.danmuService.verifyPassword(data.password);
+    this.server.emit('verify_password', result);
     return { success: true };
   }
 
   @SubscribeMessage('update_acps')
   async handleUpdateAcps(@MessageBody() data: { index: string; text: string }) {
     const [account, password] = data.text.split(' / ');
-    return await this.danmuService.updateAccountPassword(data.index, account, password);
+    const result = await this.danmuService.updateAccountPassword(data.index, account, password);
+    this.server.emit('update_acps', result);
+    return { success: true };
   }
 
   private startUpdateInterval() {
@@ -66,6 +80,6 @@ export class DanmuGateway implements OnGatewayInit {
       } catch (error) {
         this.logger.error('更新数据时发生错误:', error);
       }
-    }, 500);
+    }, 2000);
   }
 }

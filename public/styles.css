@@ -4,12 +4,27 @@ body {
 }
 
 .login-container, .toggle-container {
-    display: inline-block; /* 让容器在同一行显示 */
-    margin-right: 10px; /* 添加一些间距 */
+    display: inline-flex;
+    align-items: center;
+    margin-right: 10px;
+    gap: 8px;
 }
 
 .login-container input, .login-container button, .toggle-container button {
-    vertical-align: top; /* 对齐元素 */
+    vertical-align: middle;
+}
+
+.error-message {
+    display: inline-block;
+    margin: 0 8px;
+    color: #ff4444;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.error-message.show {
+    opacity: 1;
 }
 
 .danmu-item {

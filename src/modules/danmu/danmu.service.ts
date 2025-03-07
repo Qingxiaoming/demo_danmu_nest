@@ -57,12 +57,30 @@ export class DanmuService {
     }
   }
 
+  async verifyPassword(password: string) {
+    try {
+      const result = await this.danmuModel.findOne({
+        where: { uid: '0' },
+        attributes: ['password']
+      });
+      
+      if (!result) {
+        return { success: false, message: '验证失败：未找到管理员记录' };
+      }
+      
+      return { success: result.password === password, message: result.password === password ? '验证成功' : '密码错误' };
+    } catch (err) {
+      console.error('密码验证失败:', err);
+      return { success: false, message: '验证失败：系统错误' };
+    }
+  }
+
   async getAllDanmu() {
     try {
-      
       const results = await this.danmuModel.findAll({
         attributes: ['uid', 'nickname', 'text', 'createtime', 'status']
       });
+
       const data = {
         uid: results.map(item => item.uid),
         nickname: results.map(item => item.nickname),
