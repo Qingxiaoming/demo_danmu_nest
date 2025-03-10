@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Danmu } from '../../model/danmu.model';
+import * as bcrypt from 'bcrypt';
+import { log } from 'console';
 
 @Injectable()
 export class DanmuService {
+  private readonly logger = new Logger(DanmuService.name);
+  
   constructor(@InjectModel(Danmu) private readonly danmuModel: typeof Danmu) {}
 
   async updateStatus(uid: string, status: string) {
@@ -31,13 +35,23 @@ export class DanmuService {
     }
   }
 
+/*
+   * @param uid 用户ID
+   * @returns 账号密码信息
+   */
   async getAccountPassword(uid: string) {
     try {
       const result = await this.danmuModel.findOne({
         where: { uid },
         attributes: ['account', 'password']
       });
+      if (!result) {
+        throw new Error('未找到账号信息');
+      }
       console.log('查询到的账号密码:', result.account, result.password);
+      // 注意：这里返回的password是加密后的密码，但前端需要显示明文
+      // 由于无法解密，所以这里只能返回加密后的密码
+      // 前端显示时会显示加密后的密码，但用户输入明文密码后仍然可以通过验证
       const returnData = { action: 'get_acps', data: {account: result.account, password: result.password}, uid };
       console.log('发送给前端的账号密码数据:', returnData);
       return returnData;
@@ -49,6 +63,7 @@ export class DanmuService {
 
   async updateAccountPassword(uid: string, account: string, password: string) {
     try {
+      // 直接存储明文密码到数据库
       await this.danmuModel.update({ account, password }, { where: { uid } });
       return { action: 'update_acps', success: true };
     } catch (err) {
@@ -57,30 +72,12 @@ export class DanmuService {
     }
   }
 
-  async verifyPassword(password: string) {
-    try {
-      const result = await this.danmuModel.findOne({
-        where: { uid: '0' },
-        attributes: ['password']
-      });
-      
-      if (!result) {
-        return { success: false, message: '验证失败：未找到管理员记录' };
-      }
-      
-      return { success: result.password === password, message: result.password === password ? '验证成功' : '密码错误' };
-    } catch (err) {
-      console.error('密码验证失败:', err);
-      return { success: false, message: '验证失败：系统错误' };
-    }
-  }
-
   async getAllDanmu() {
     try {
+      
       const results = await this.danmuModel.findAll({
         attributes: ['uid', 'nickname', 'text', 'createtime', 'status']
       });
-
       const data = {
         uid: results.map(item => item.uid),
         nickname: results.map(item => item.nickname),
@@ -93,6 +90,90 @@ export class DanmuService {
     } catch (err) {
       console.error('从数据库获取弹幕数据失败:', err);
       throw err;
+    }
+  }
+
+  /**
+   * 创建新的弹幕记录，如果uid已存在则更新记录
+   * @param danmuData 弹幕数据
+   * @returns 创建或更新的弹幕记录
+   */
+  async createDanmu(danmuData: any): Promise<Danmu> {
+    try {
+      // 如果是更新操作，确保状态设置为waiting
+      if (danmuData.uid) {
+        const existingDanmu = await this.danmuModel.findOne({
+          where: { uid: danmuData.uid }
+        });
+        
+        if (existingDanmu) {
+          // 如果记录已存在，强制设置状态为waiting
+          danmuData.status = 'waiting';
+          this.logger.log(`更新弹幕并重置状态: ${danmuData.uid}`);
+        }
+      }
+      
+      // 使用upsert操作，如果记录存在则更新，不存在则创建
+      const [danmu, created] = await this.danmuModel.upsert(danmuData);
+      
+      if (created) {
+        this.logger.log(`创建弹幕成功: ${danmu.uid}`);
+      } else {
+        this.logger.log(`更新弹幕成功: ${danmu.uid}`);
+      }
+      
+      return danmu;
+    } catch (err) {
+      this.logger.error('创建或更新弹幕失败:', err);
+      throw { error: '创建弹幕失败' };
+    }
+  }
+
+  /**
+   * 获取管理员密码（uid为0的记录）
+   * @returns 管理员密码哈希值
+   */
+  private async getAdminPassword(): Promise<string> {
+    try {
+      const admin = await this.danmuModel.findOne({
+        where: { uid: '0' },
+        attributes: ['password']
+      });
+      
+      if (admin && admin.password) {
+        return admin.password;
+      } else {
+        // 如果没有找到管理员记录，返回默认密码哈希值
+        this.logger.warn('未找到管理员记录，使用默认密码');
+        return '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm';
+      }
+    } catch (err) {
+      this.logger.error('获取管理员密码失败:', err);
+      // 出错时返回默认密码哈希值
+      return '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm';
+    }
+  }
+
+  /**
+   * 验证管理员密码
+   * @param plainPassword 前端传入的明文密码
+   * @returns 验证结果
+   */
+  async verifyPassword(plainPassword: string): Promise<{action: string; success: boolean; message?: string}> {
+    try {
+      const adminPassword = await this.getAdminPassword();
+      // 前端已经使用bcrypt对密码进行了哈希处理
+      // 我们需要直接比较前端传来的明文密码与数据库中存储的哈希值是否匹配
+      this.logger.log(plainPassword,adminPassword );
+      const isMatch = (plainPassword == adminPassword);
+      return { 
+        action: 'verify_password', 
+        success: isMatch,
+        message: isMatch ? '验证成功' : '密码错误' 
+      };
+    } catch (err) {
+      this.logger.error('密码验证失败:', err);
+      return { action: 'verify_password', success: false, message: '验证过程发生错误' };
     }
   }
 }

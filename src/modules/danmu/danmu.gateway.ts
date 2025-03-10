@@ -25,7 +25,7 @@ export class DanmuGateway implements OnGatewayInit {
   handleConnection(client: any) {
     this.logger.log('客户端已连接');
   }
-
+ 
   @SubscribeMessage('delete')
   async handleDelete(@MessageBody() data: { index: string }) {
     const result = await this.danmuService.updateStatus(data.index, 'deleted');

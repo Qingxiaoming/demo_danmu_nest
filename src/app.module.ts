@@ -8,9 +8,11 @@ import { Danmu } from './model/danmu.model';
 import { ExceptionCatchFilter } from './core/filter/exception';
 import { UserModule } from './modules/user/user.module';
 import { DanmuModule } from './modules/danmu/danmu.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     SequelizeModule.forRoot({
       dialect: 'mysql',
       host: '127.0.0.1',
@@ -21,6 +23,7 @@ import { DanmuModule } from './modules/danmu/danmu.module';
       models: [User, Danmu],
       autoLoadModels: true,
       synchronize: true,
+      logging: false,
     }),
     UserModule,
     DanmuModule

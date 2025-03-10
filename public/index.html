@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>----</title>
     <link rel="stylesheet" href="styles.css">
+    
 </head>
 <body>
     <h1></h1>
@@ -39,19 +40,37 @@
         }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const danmuContainer = document.getElementById('danmu-container');
         const socket = io('http://127.0.0.1:5052');
         let userRole = 'guest'; // 默认为游客模式
         let showNonWaiting = true; // 默认显示所有状态
 
+        // 不再在前端存储默认密码哈希值
+
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
         });
         
         document.getElementById('login-btn').onclick = () => {
-            const password = document.getElementById('login-password').value;
-            socket.emit('verify_password', { password });
+            const plainPassword = document.getElementById('login-password').value;
+            if (!plainPassword) {
+                const errorElement = document.getElementById('password-error');
+                errorElement.textContent = '请输入密码';
+                errorElement.classList.add('show');
+                setTimeout(() => {
+                    errorElement.classList.remove('show');
+                }, 3000);
+                return;
+            }
+            
+            // 对密码进行SHA-256哈希处理
+            const hashedPassword = CryptoJS.SHA256(plainPassword).toString();
+            
+            // 发送哈希后的密码到后端进行验证
+            socket.emit('verify_password', { password: hashedPassword, hashed: true });
+            
             socket.once('verify_password', (response) => {
                 if (response.success) {
                     userRole = 'owner';
