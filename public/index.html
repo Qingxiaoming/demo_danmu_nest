@@ -30,11 +30,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const danmuContainer = document.getElementById('danmu-container');
-        const socket = io('http://127.0.0.1:5052');
+        const socket = io('http://127.0.0.1:Webhook_PORT');
         let userRole = 'guest'; // 默认为游客模式
         let showNonWaiting = true; // 默认显示所有状态
-
-        // 不再在前端存储默认密码哈希值
 
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
