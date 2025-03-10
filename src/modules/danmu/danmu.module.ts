@@ -6,9 +6,10 @@ import { Danmu } from '../../model/danmu.model';
 import { BilibiliService } from './bilibili.service';
 import { DanmuTaskService } from './danmu.task.service';
 
+
 @Module({
   imports: [SequelizeModule.forFeature([Danmu])],
   providers: [DanmuGateway, DanmuService, BilibiliService, DanmuTaskService],
 })
 
-export class DanmuModule {}
+export class DanmuModule {} 

@@ -12,33 +12,20 @@
     <div class="login-container">
         <input type="password" id="login-password" placeholder="输入密码">
         <button id="login-btn">Start</button>
-        <div id="password-error" class="error-message"></div>
+        <script>
+            document.getElementById('login-password').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('login-btn').click();
+                }
+            });
+        </script>
+        
     </div>
     <div class="toggle-container">
         <button id="toggle-btn">O</button>
+        <div id="password-error" class="error-message"></div>
     </div>
     <div id="danmu-container"></div>
-    <style>
-        .login-container {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .error-message {
-            color: #ff4444;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            background: white;
-            padding: 5px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-left: 8px;
-        }
-        .error-message.show {
-            opacity: 1;
-        }
-    </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
@@ -57,7 +44,7 @@
             const plainPassword = document.getElementById('login-password').value;
             if (!plainPassword) {
                 const errorElement = document.getElementById('password-error');
-                errorElement.textContent = '请输入密码';
+                errorElement.textContent = '密码为空';
                 errorElement.classList.add('show');
                 setTimeout(() => {
                     errorElement.classList.remove('show');
@@ -196,7 +183,7 @@
 
                 // 创建时间
                 const createtime = document.createElement('span');
-                createtime.textContent = `----${data.createtime[index]}`;
+                createtime.textContent = `----${data.createtime[index].slice(5, 16)}`;
                 createtime.className = 'createtime';
 
                 // 如果用户是"主人"，显示操作按钮
