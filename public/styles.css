@@ -7,7 +7,7 @@ body {
     display: inline-flex;
     align-items: center;
     margin-right: 10px;
-    gap: 2px;
+    gap: 4px;
 }
 
 .login-container input, .login-container button, .toggle-container button {
@@ -33,7 +33,7 @@ body {
     padding: 5px;
     border: 1px solid #ccc;
     border-radius: 5px;
-    position: relative; /* 为子元素的绝对定位提供参考 */
+    position: relative;
 }
 
 .danmu-item .nickname {
@@ -41,7 +41,7 @@ body {
 }
 
 .danmu-item .text {
-    margin-left: 5px; /* 与昵称的间距 */
+    margin-left: 5px;
 }
 
 .danmu-item .status {
@@ -49,38 +49,97 @@ body {
     color: blue;
     font-style: italic;
     position: absolute;
-    top: 10px; /* 距离顶部的间距 */
-    right: 10px; /* 距离右侧的间距 */
+    top: 10px;
+    right: 10px;
 }
 
 .danmu-item .createtime {
     color: #555;
-    display: block; /* 独占一行 */
-    margin-top: 5px; /* 与上一行的间距 */
+    display: block;
+    margin-top: 5px;
 }
 
 .danmu-item .actions {
     position: absolute;
     bottom: 0;
-    right: 0; /* 将按钮放置在右下角 */
+    right: 0;
     display: flex;
-    gap: 2px; /* 按钮之间的间距 */
+    gap: 1px;
 }
 
 .danmu-item .actions button {
     margin-right: 2px;
+    padding: 4px 8px;
+    border: 1px solid #8d8c8c;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    color: black;
+    position: relative;
+    overflow: hidden;
+}
+
+.danmu-item .actions button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.danmu-item .actions button:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.danmu-item .actions button:hover::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
 }
 
 .acps-dialog {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(0.9);
     background: white;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    padding: 30px;
+    border: none;
+    border-radius: 12px;
     z-index: 1000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-height: 90vh;
+    overflow-y: auto;
+    width: 300px;
+}
+
+.acps-dialog.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.acps-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 999;
+}
+
+.acps-dialog-overlay.show {
+    opacity: 1;
 }
 
 .acps-dialog h3 {
@@ -103,108 +162,102 @@ body {
 }
 
 .acps-dialog input {
-    display: block;
-    margin: 10px 0;
-    padding: 5px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.acps-dialog button {
-    margin-right: 5px;
-    padding: 5px 10px;
-}
-
-.add-danmu-btn-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 100;
-}
-
-#add-danmu-btn {
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-#add-danmu-btn:hover {
-    background-color: #45a049;
-}
-
-.acps-dialog input {
     width: 100%;
     margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 .acps-dialog button {
     margin-right: 2px;
 }
 
-.actions button {
-    padding: 4px 8px;
-    border: 1px solid #8d8c8c;
-    border-radius: 12px;
+.add-danmu-btn-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.add-danmu-btn-container button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    font-size: 16px;
     cursor: pointer;
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.3s ease;
-    background-color: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    color: black;
 }
 
-.actions button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+.add-danmu-btn-container button:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.actions button:active {
-    transform: scale(0.98);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+#settings-btn {
+    font-size: 16px;
+    z-index: 100;
 }
 
-.actions button:hover::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
+.settings-item {
+    margin-bottom: 15px;
+}
+
+.settings-item label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.settings-item input[type="text"] {
     width: 100%;
-    height: 100%;
-    background: rgba(255,255,255,0.1);
-    border-radius: 8px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f8f8f8;
+    cursor: pointer;
 }
 
-.actions button {
-    position: relative;
-    overflow: hidden;
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
 }
 
-.actions button:nth-child(1) {
-    background-color: #ffffff;
+.settings-actions button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
 }
 
-.actions button:nth-child(2) {
-    background-color: #ffffff;
+#settings-save {
+    background-color: #007bff;
+    color: white;
 }
 
-.actions button:nth-child(3) {
-    background-color: #ffffff;
+#settings-save:hover {
+    background-color: #0056b3;
 }
 
-.actions button:nth-child(4) {
-    background-color: #ffffff;
+#settings-cancel {
+    background-color: #f8f8f8;
+    color: #333;
+    border: 1px solid #ddd;
 }
 
-.login-container, .toggle-container {
-    gap: 4px;
-}
-
-.danmu-item .actions {
-    gap: 1px;
+#settings-cancel:hover {
+    background-color: #e9e9e9;
 }
 

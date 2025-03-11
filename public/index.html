@@ -26,11 +26,13 @@
         <div id="password-error" class="error-message"></div>
     </div>
     <div id="danmu-container"></div>
-    <div class="add-danmu-btn-container">
-        <button id="add-danmu-btn">添加弹幕</button>
+    <div class="add-danmu-btn-container" style="display: none;">
+        <button id="add-danmu-btn" title="添加弹幕"><i class="fas fa-plus"></i></button>
+        <button id="settings-btn" title="设置"><i class="fas fa-cog"></i></button>
     </div>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
     <script>
         const danmuContainer = document.getElementById('danmu-container');
         const socket = io('http://127.0.0.1:5052');
@@ -62,6 +64,7 @@
             socket.once('verify_password', (response) => {
                 if (response.success) {
                     userRole = 'owner';
+                    document.querySelector('.add-danmu-btn-container').style.display = 'block';
                     renderDanmu();
                     document.getElementById('password-error').classList.remove('show');
                 } else {
@@ -81,6 +84,10 @@
         };
 
         function showAccountPasswordDialog(data, uid) {
+            const overlay = document.createElement('div');
+            overlay.className = 'acps-dialog-overlay';
+            document.body.appendChild(overlay);
+
             const dialog = document.createElement('div');
             dialog.className = 'acps-dialog';
             dialog.innerHTML = `
@@ -90,6 +97,22 @@
                 <button id="acps-save">保存</button>
                 <button id="acps-cancel">取消</button>
             `;
+
+            // 添加延时以触发动画
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+                dialog.classList.add('show');
+            });
+
+            // 添加键盘事件监听
+            const handleKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    saveButton.click();
+                } else if (e.key === 'Escape') {
+                    cancelButton.click();
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
 
             const saveButton = dialog.querySelector('#acps-save');
             const cancelButton = dialog.querySelector('#acps-cancel');
@@ -102,14 +125,24 @@
                         index: uid,
                         text: newText
                     });
-                    dialog.remove();
+                    closeDialog();
                 } else {
                     //alert('请输入新的账号或密码');
                 }
             };
 
             cancelButton.onclick = () => {
-                dialog.remove();
+                closeDialog();
+            };
+
+            const closeDialog = () => {
+                document.removeEventListener('keydown', handleKeydown);
+                overlay.classList.remove('show');
+                dialog.classList.remove('show');
+                setTimeout(() => {
+                    overlay.remove();
+                    dialog.remove();
+                }, 300);
             };
 
             document.body.appendChild(dialog);
@@ -263,6 +296,10 @@
 
         // 显示添加弹幕对话框
         function showAddDanmuDialog() {
+            const overlay = document.createElement('div');
+            overlay.className = 'acps-dialog-overlay';
+            document.body.appendChild(overlay);
+
             const dialog = document.createElement('div');
             dialog.className = 'acps-dialog';
             dialog.innerHTML = `
@@ -273,10 +310,26 @@
                 <button id="add-cancel">取消</button>
             `;
 
+            // 添加延时以触发动画
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+                dialog.classList.add('show');
+            });
+
             const saveButton = dialog.querySelector('#add-save');
             const cancelButton = dialog.querySelector('#add-cancel');
             const nicknameField = dialog.querySelector('#add-nickname');
             const textField = dialog.querySelector('#add-text');
+
+            // 添加键盘事件监听
+            const handleKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    saveButton.click();
+                } else if (e.key === 'Escape') {
+                    cancelButton.click();
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
 
             saveButton.onclick = () => {
                 const nickname = nicknameField.value;
@@ -286,15 +339,101 @@
                         nickname: nickname,
                         text: text
                     });
-                    dialog.remove();
+                    closeDialog();
                 } else {
                     alert('昵称和弹幕内容不能为空');
                 }
             };
 
             cancelButton.onclick = () => {
-                dialog.remove();
+                closeDialog();
             };
+
+            const closeDialog = () => {
+                document.removeEventListener('keydown', handleKeydown);
+                overlay.classList.remove('show');
+                dialog.classList.remove('show');
+                setTimeout(() => {
+                    overlay.remove();
+                    dialog.remove();
+                }, 300);
+            };
+
+            document.body.appendChild(dialog);
+        }
+        // 添加全局快捷键监听
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+                e.preventDefault();
+                showSettingsDialog();
+            }
+        });
+
+        // 设置按钮点击事件
+        document.getElementById('settings-btn').onclick = () => {
+            showSettingsDialog();
+        };
+
+        // 显示设置窗口
+        function showSettingsDialog() {
+            const overlay = document.createElement('div');
+            overlay.className = 'acps-dialog-overlay';
+            document.body.appendChild(overlay);
+
+            const dialog = document.createElement('div');
+            dialog.className = 'acps-dialog';
+            dialog.innerHTML = `
+                <h3>快捷键设置</h3>
+                <div class="settings-item">
+                    <label>添加弹幕快捷键：</label>
+                    <input type="text" id="add-danmu-shortcut" placeholder="请按下快捷键组合" readonly>
+                </div>
+                <div class="settings-item">
+                    <label>切换显示状态快捷键：</label>
+                    <input type="text" id="toggle-shortcut" placeholder="请按下快捷键组合" readonly>
+                </div>
+                <div class="settings-actions">
+                    <button id="settings-save">保存</button>
+                    <button id="settings-cancel">取消</button>
+                </div>
+            `;
+
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+                dialog.classList.add('show');
+            });
+
+            const closeDialog = () => {
+                overlay.classList.remove('show');
+                dialog.classList.remove('show');
+                setTimeout(() => {
+                    overlay.remove();
+                    dialog.remove();
+                }, 300);
+            };
+
+            // 快捷键输入处理
+            const shortcutInputs = dialog.querySelectorAll('input[type="text"]');
+            shortcutInputs.forEach(input => {
+                input.addEventListener('keydown', (e) => {
+                    e.preventDefault();
+                    const keys = [];
+                    if (e.ctrlKey) keys.push('Ctrl');
+                    if (e.shiftKey) keys.push('Shift');
+                    if (e.altKey) keys.push('Alt');
+                    if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') {
+                        keys.push(e.key.toUpperCase());
+                    }
+                    input.value = keys.join('+');
+                });
+            });
+
+            dialog.querySelector('#settings-save').onclick = () => {
+                // 保存快捷键设置的逻辑
+                closeDialog();
+            };
+
+            dialog.querySelector('#settings-cancel').onclick = closeDialog;
 
             document.body.appendChild(dialog);
         }
