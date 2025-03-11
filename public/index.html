@@ -442,7 +442,62 @@
             document.body.appendChild(dialog);
         }
 
-        //设置窗口函数
+        // 读取本地存储中的快捷键设置
+        function loadShortcutSettings() {
+            const settings = localStorage.getItem('shortcutSettings');
+            return settings ? JSON.parse(settings) : {};
+        }
+
+        // 保存快捷键设置到本地存储
+        function saveShortcutSettings(settings) {
+            console.log('保存快捷键设置:', settings); // 调试输出
+            localStorage.setItem('shortcutSettings', JSON.stringify(settings));
+        }
+
+        // 初始化快捷键设置
+        let shortcutSettings = loadShortcutSettings();
+
+        // 确保在 DOMContentLoaded 事件后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            shortcutSettings = loadShortcutSettings();
+        });
+
+        // 绑定快捷键到功能
+        document.addEventListener('keydown', (e) => {
+            const keyCombination = [];
+            if (e.ctrlKey) keyCombination.push('Ctrl');
+            if (e.shiftKey) keyCombination.push('Shift');
+            if (e.altKey) keyCombination.push('Alt');
+            if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') {
+                keyCombination.push(e.key.toUpperCase());
+            }
+            const keyString = keyCombination.join('+');
+
+            switch (keyString) {
+                case shortcutSettings.delete:
+                    // 执行删除操作
+                    console.log('执行删除操作');
+                    break;
+                case shortcutSettings.complete:
+                    // 执行完成操作
+                    console.log('执行完成操作');
+                    break;
+                case shortcutSettings.edit:
+                    // 执行编辑操作
+                    console.log('执行编辑操作');
+                    break;
+                case shortcutSettings.acps:
+                    // 执行账密操作
+                    console.log('执行账密操作');
+                    break;
+                case shortcutSettings.add:
+                    // 执行增加操作
+                    console.log('执行增加操作');
+                    break;
+            }
+        });
+
+        // 更新设置界面
         function showSettingsDialog() {
             const overlay = document.createElement('div');
             overlay.className = 'acps-dialog-overlay';
@@ -453,12 +508,24 @@
             dialog.innerHTML = `
                 <h3>快捷键设置</h3>
                 <div class="settings-item">
-                    <label>添加弹幕快捷键：</label>
-                    <input type="text" id="add-danmu-shortcut" placeholder="请按下快捷键组合" readonly>
+                    <label>删除快捷键：</label>
+                    <input type="text" id="delete-shortcut" placeholder="请按下快捷键组合" readonly value="${shortcutSettings.delete || ''}">
                 </div>
                 <div class="settings-item">
-                    <label>切换显示状态快捷键：</label>
-                    <input type="text" id="toggle-shortcut" placeholder="请按下快捷键组合" readonly>
+                    <label>完成快捷键：</label>
+                    <input type="text" id="complete-shortcut" placeholder="请按下快捷键组合" readonly value="${shortcutSettings.complete || ''}">
+                </div>
+                <div class="settings-item">
+                    <label>编辑快捷键：</label>
+                    <input type="text" id="edit-shortcut" placeholder="请按下快捷键组合" readonly value="${shortcutSettings.edit || ''}">
+                </div>
+                <div class="settings-item">
+                    <label>账密快捷键：</label>
+                    <input type="text" id="acps-shortcut" placeholder="请按下快捷键组合" readonly value="${shortcutSettings.acps || ''}">
+                </div>
+                <div class="settings-item">
+                    <label>增加快捷键：</label>
+                    <input type="text" id="add-shortcut" placeholder="请按下快捷键组合" readonly value="${shortcutSettings.add || ''}">
                 </div>
                 <div class="settings-actions">
                     <button id="settings-save">保存</button>
@@ -497,7 +564,15 @@
             });
 
             dialog.querySelector('#settings-save').onclick = () => {
-                // 保存快捷键设置的逻辑
+                const newSettings = {
+                    delete: document.getElementById('delete-shortcut').value,
+                    complete: document.getElementById('complete-shortcut').value,
+                    edit: document.getElementById('edit-shortcut').value,
+                    acps: document.getElementById('acps-shortcut').value,
+                    add: document.getElementById('add-shortcut').value
+                };
+                console.log('保存按钮点击，新的设置:', newSettings); // 调试输出
+                saveShortcutSettings(newSettings);
                 closeDialog();
             };
 
