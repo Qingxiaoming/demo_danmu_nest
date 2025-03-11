@@ -26,11 +26,14 @@
         <div id="password-error" class="error-message"></div>
     </div>
     <div id="danmu-container"></div>
+    <div class="add-danmu-btn-container">
+        <button id="add-danmu-btn">添加弹幕</button>
+    </div>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         const danmuContainer = document.getElementById('danmu-container');
-        const socket = io('http://127.0.0.1:Webhook_PORT');
+        const socket = io('http://127.0.0.1:5052');
         let userRole = 'guest'; // 默认为游客模式
         let showNonWaiting = true; // 默认显示所有状态
 
@@ -130,6 +133,15 @@
                 //alert('账号密码更新成功');
             } else {
                 //alert('账号密码更新失败');
+            }
+        });
+
+        // 添加弹幕响应事件
+        socket.on('add_danmu', (response) => {
+            if (response.success) {
+                alert('添加弹幕成功');
+            } else {
+                alert(response.message || '添加弹幕失败');
             }
         });
 
@@ -243,6 +255,48 @@
 
                 danmuContainer.appendChild(item);
             });
+        }
+        // 添加弹幕按钮点击事件
+        document.getElementById('add-danmu-btn').onclick = () => {
+            showAddDanmuDialog();
+        };
+
+        // 显示添加弹幕对话框
+        function showAddDanmuDialog() {
+            const dialog = document.createElement('div');
+            dialog.className = 'acps-dialog';
+            dialog.innerHTML = `
+                <h3>添加弹幕</h3>
+                <input type="text" id="add-nickname" placeholder="输入昵称">
+                <input type="text" id="add-text" placeholder="输入弹幕内容">
+                <button id="add-save">保存</button>
+                <button id="add-cancel">取消</button>
+            `;
+
+            const saveButton = dialog.querySelector('#add-save');
+            const cancelButton = dialog.querySelector('#add-cancel');
+            const nicknameField = dialog.querySelector('#add-nickname');
+            const textField = dialog.querySelector('#add-text');
+
+            saveButton.onclick = () => {
+                const nickname = nicknameField.value;
+                const text = textField.value;
+                if (nickname && text) {
+                    socket.emit('add_danmu', {
+                        nickname: nickname,
+                        text: text
+                    });
+                    dialog.remove();
+                } else {
+                    alert('昵称和弹幕内容不能为空');
+                }
+            };
+
+            cancelButton.onclick = () => {
+                dialog.remove();
+            };
+
+            document.body.appendChild(dialog);
         }
     </script>
 </body>

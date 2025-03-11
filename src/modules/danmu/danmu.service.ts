@@ -72,6 +72,62 @@ export class DanmuService {
     }
   }
 
+  /**
+   * 添加新弹幕或更新已有弹幕
+   * @param nickname 弹幕昵称
+   * @param text 弹幕内容
+   * @returns 添加或更新结果
+   */
+  async addDanmu(nickname: string, text: string): Promise<any> {
+    try {
+      // 查找是否已存在该昵称的记录
+      const existingDanmu = await this.danmuModel.findOne({
+        where: { nickname }
+      });
+      
+      if (existingDanmu) {
+        // 如果已存在，更新text、状态和创建时间
+        this.logger.log(`找到已存在的昵称: ${nickname}，更新记录`);
+        await this.danmuModel.update(
+          { 
+            text, 
+            status: 'waiting',
+            createtime: new Date().toISOString() 
+          }, 
+          { where: { nickname } }
+        );
+        return { success: true, message: '弹幕更新成功' };
+      } else {
+        // 如果不存在，创建新记录
+        // 查找最大uid
+        const maxUidRecord = await this.danmuModel.findOne({
+          order: [['uid', 'DESC']]
+        });
+        
+        // 计算新uid (最大uid + 1)
+        const maxUid = maxUidRecord ? parseInt(maxUidRecord.uid) : 0;
+        const newUid = (maxUid + 1).toString();
+        
+        // 创建新记录
+        await this.danmuModel.create({
+          uid: newUid,
+          nickname,
+          text,
+          account: '',
+          password: '',
+          status: 'waiting',
+          createtime: new Date().toISOString()
+        });
+        
+        this.logger.log(`创建新弹幕记录，uid: ${newUid}, nickname: ${nickname}`);
+        return { success: true, message: '弹幕添加成功' };
+      }
+    } catch (err) {
+      this.logger.error('添加或更新弹幕失败:', err);
+      throw { message: '添加弹幕失败: ' + err.message };
+    }
+  }
+
   async getAllDanmu() {
     try {
       

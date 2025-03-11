@@ -114,6 +114,26 @@ export class DanmuGateway implements OnGatewayInit {
   }
 
   /**
+   * 处理添加弹幕事件
+   * @param data.nickname 弹幕昵称
+   * @param data.text 弹幕内容
+   * @returns {Promise<{success: boolean}>} 添加操作的结果
+   * @emits add_danmu 广播添加结果给所有客户端
+   */
+  @SubscribeMessage('add_danmu')
+  async handleAddDanmu(@MessageBody() data: { nickname: string; text: string }) {
+    try {
+      const result = await this.danmuService.addDanmu(data.nickname, data.text);
+      this.server.emit('add_danmu', { success: true, message: '添加弹幕成功' });
+      return { success: true };
+    } catch (error) {
+      this.logger.error('添加弹幕失败:', error);
+      this.server.emit('add_danmu', { success: false, message: error.message || '添加弹幕失败' });
+      return { success: false };
+    }
+  }
+
+  /**
    * 启动定时更新任务
    * 每2秒从数据库获取最新弹幕数据并广播给所有客户端
    * @private

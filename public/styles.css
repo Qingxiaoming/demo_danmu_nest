@@ -103,6 +103,41 @@ body {
 }
 
 .acps-dialog input {
+    display: block;
+    margin: 10px 0;
+    padding: 5px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.acps-dialog button {
+    margin-right: 5px;
+    padding: 5px 10px;
+}
+
+.add-danmu-btn-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+#add-danmu-btn {
+    padding: 10px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#add-danmu-btn:hover {
+    background-color: #45a049;
+}
+
+.acps-dialog input {
     width: 100%;
     margin-bottom: 10px;
 }
