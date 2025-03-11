@@ -261,3 +261,21 @@ body {
     background-color: #e9e9e9;
 }
 
+.danmu-item:focus {
+    outline: none;
+    box-shadow: 0 0 8px rgba(74, 144, 226, 0.3);
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+.danmu-item.selected {
+    background-color: #f0f8ff;
+    border-color: #4a90e2;
+    box-shadow: 0 0 8px rgba(74, 144, 226, 0.3);
+    transform: translateY(-1px);
+}
+
+.danmu-item.selected:focus {
+    box-shadow: 0 0 12px rgba(74, 144, 226, 0.4);
+}
+

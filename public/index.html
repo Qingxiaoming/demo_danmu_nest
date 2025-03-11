@@ -34,15 +34,93 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
     <script>
+
         const danmuContainer = document.getElementById('danmu-container');
+
         const socket = io('http://127.0.0.1:5052');
         let userRole = 'guest'; // 默认为游客模式
         let showNonWaiting = true; // 默认显示所有状态
+        let currentSelectedDanmuItem = null; // 全局变量，用于追踪当前选中的弹幕项目
+        let currentDanmuData = null;// 全局变量存储最新的弹幕数据
 
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
         });
-        
+
+        // 初始化Socket事件监听
+        setupSocketEvents();
+
+        // 添加点击列表外失焦的逻辑
+        document.addEventListener('click', (e) => {
+            // 检查点击是否发生在弹幕项目外部
+            if (currentSelectedDanmuItem && !e.target.closest('.danmu-item') && !e.target.closest('.acps-dialog') && !e.target.closest('.acps-dialog-overlay')) {
+                // 如果点击在弹幕项目外部且不在对话框内，取消选中状态
+                currentSelectedDanmuItem.classList.remove('selected');
+                currentSelectedDanmuItem.blur();
+                currentSelectedDanmuItem = null;
+            }
+        });
+
+        // 全局快捷键监听
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'i') {
+                e.preventDefault();
+                showSettingsDialog();
+            } else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                showAddDanmuDialog();
+            } else if (e.ctrlKey && e.key.toLowerCase() === 't') {
+                e.preventDefault();
+                document.getElementById('toggle-btn').click();
+            }
+        });
+        // 设置按钮点击事件
+        document.getElementById('settings-btn').onclick = () => {
+            showSettingsDialog();
+        };
+        // 添加弹幕按钮点击事件
+        document.getElementById('add-danmu-btn').onclick = () => {
+            showAddDanmuDialog();
+        };
+
+        //切换列表显示函数
+        document.getElementById('toggle-btn').onclick = () => {
+            showNonWaiting = !showNonWaiting; // 切换显示/隐藏状态
+            renderDanmu(); // 重新渲染弹幕
+        };
+
+        // 处理弹幕项选择的通用函数
+        function handleDanmuItemSelection(item) {
+            if (currentSelectedDanmuItem && (currentSelectedDanmuItem !== item)) {
+                currentSelectedDanmuItem.classList.remove('selected');
+                //currentSelectedDanmuItem.blur();
+            }
+            item.classList.add('selected');
+            item.focus();
+            currentSelectedDanmuItem = item;
+        }
+
+        // 处理Tab键导航的通用函数
+        function handleTabNavigation(item, e) {
+            e.preventDefault();
+            const items = Array.from(document.querySelectorAll('.danmu-item'));
+            const currentIndex = items.indexOf(item);
+            let nextIndex;
+            if (e.shiftKey) {
+                nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+            } else {
+                nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+            }
+            const nextItem = items[nextIndex];
+            if (nextItem) {
+                handleDanmuItemSelection(nextItem);
+            }
+        }
+
+
+
+
+        //管理员id验证函数
         document.getElementById('login-btn').onclick = () => {
             const plainPassword = document.getElementById('login-password').value;
             if (!plainPassword) {
@@ -54,7 +132,6 @@
                 }, 3000);
                 return;
             }
-            
             // 对密码进行SHA-256哈希处理
             const hashedPassword = CryptoJS.SHA256(plainPassword).toString();
             
@@ -78,136 +155,122 @@
             });
         };
 
-        document.getElementById('toggle-btn').onclick = () => {
-            showNonWaiting = !showNonWaiting; // 切换显示/隐藏状态
-            renderDanmu(); // 重新渲染弹幕
-        };
 
-        function showAccountPasswordDialog(data, uid) {
-            const overlay = document.createElement('div');
-            overlay.className = 'acps-dialog-overlay';
-            document.body.appendChild(overlay);
 
-            const dialog = document.createElement('div');
-            dialog.className = 'acps-dialog';
-            dialog.innerHTML = `
-                <p><span id="current-account">${data.account}</span></p>
-                <p><span id="current-password">${data.password}</span></p>
-                <input type="text" id="acps-edit" placeholder="输入新的账号或密码">
-                <button id="acps-save">保存</button>
-                <button id="acps-cancel">取消</button>
-            `;
-
-            // 添加延时以触发动画
-            requestAnimationFrame(() => {
-                overlay.classList.add('show');
-                dialog.classList.add('show');
+        // 使用函数封装Socket.IO事件处理逻辑
+        function setupSocketEvents() {
+            // 定义所有需要监听的事件
+            const socketEvents = [
+                'update', 'get_acps', 'update_acps', 'add_danmu'
+            ];
+            // 为每个事件添加监听器
+            socketEvents.forEach(eventName => {
+                socket.on(eventName, (data) => {
+                    handleSocketEvent(eventName, data);
+                });
             });
-
-            // 添加键盘事件监听
-            const handleKeydown = (e) => {
-                if (e.key === 'Enter') {
-                    saveButton.click();
-                } else if (e.key === 'Escape') {
-                    cancelButton.click();
-                }
-            };
-            document.addEventListener('keydown', handleKeydown);
-
-            const saveButton = dialog.querySelector('#acps-save');
-            const cancelButton = dialog.querySelector('#acps-cancel');
-            const inputField = dialog.querySelector('#acps-edit');
-
-            saveButton.onclick = () => {
-                const newText = inputField.value;
-                if (newText) {
-                    socket.emit('update_acps', {
-                        index: uid,
-                        text: newText
-                    });
-                    closeDialog();
-                } else {
-                    //alert('请输入新的账号或密码');
-                }
-            };
-
-            cancelButton.onclick = () => {
-                closeDialog();
-            };
-
-            const closeDialog = () => {
-                document.removeEventListener('keydown', handleKeydown);
-                overlay.classList.remove('show');
-                dialog.classList.remove('show');
-                setTimeout(() => {
-                    overlay.remove();
-                    dialog.remove();
-                }, 300);
-            };
-
-            document.body.appendChild(dialog);
         }
-
-        socket.on('update', (data) => {
-            renderDanmu(data);
-        });
         
-        socket.on('get_acps', (response) => {
-            console.log('收到账密数据:', response);
-            if (response && response.data) {
-                showAccountPasswordDialog(response.data, response.uid);
-            } else {
-                alert('获取账密数据失败');
+        // 使用switch-case处理不同的Socket.IO事件
+        function handleSocketEvent(eventName, data) {
+            switch(eventName) {
+                case 'update':
+                    currentDanmuData = data; // 保存最新数据
+                    renderDanmu(data);
+                    break;
+                    
+                case 'get_acps':
+                    console.log('收到账密数据:', data);
+                    if (data && data.data) {
+                        showAccountPasswordDialog(data.data, data.uid);
+                    }
+                    break;
+                    
+                case 'update_acps':
+                    break;
+                    
+                case 'add_danmu':
+                    break;
+                    
+                default:
+                    console.log(`未处理的事件: ${eventName}`, data);
+                    break;
             }
-        });
+        }
         
-        socket.on('update_acps', (response) => {
-            if (response.success) {
-                //alert('账号密码更新成功');
-            } else {
-                //alert('账号密码更新失败');
-            }
-        });
-
-        // 添加弹幕响应事件
-        socket.on('add_danmu', (response) => {
-            if (response.success) {
-                alert('添加弹幕成功');
-            } else {
-                alert(response.message || '添加弹幕失败');
-            }
-        });
-
-        // 全局变量存储最新的弹幕数据
-        let currentDanmuData = null;
-
-        socket.on('update', (data) => {
-            currentDanmuData = data; // 保存最新数据
-            renderDanmu(data);
-        });
-
         function renderDanmu(data) {
             // 如果没有传入数据，使用最新保存的数据
             if (!data) {
                 data = currentDanmuData;
             }
-            
             // 如果没有数据可用，直接返回
             if (!data || !data.uid) return;
+            
+            // 保存当前选中项的信息
+            let selectedUid = null;
+            if (currentSelectedDanmuItem) {
+                // 获取当前选中项的uid属性
+                selectedUid = currentSelectedDanmuItem.getAttribute('data-uid');
+                // 如果没有uid属性，尝试通过索引获取
+                if (!selectedUid) {
+                    const items = Array.from(document.querySelectorAll('.danmu-item'));
+                    const selectedIndex = items.indexOf(currentSelectedDanmuItem);
+                    if (selectedIndex !== -1 && selectedIndex < data.uid.length) {
+                        selectedUid = data.uid[selectedIndex];
+                    }
+                }
+            }
             
             danmuContainer.innerHTML = ''; // 清空现有内容
             data.uid.forEach((uid, index) => {
                 if (!showNonWaiting && data.status[index] !== 'waiting') {
                     return; // 如果隐藏非等待状态且当前状态不是 'waiting'，则跳过
                 }
-                
                 // 如果状态为notdisplay，跳过该项不显示
                 if (data.status[index] === 'notdisplay') {
                     return;
                 }
-
                 const item = document.createElement('div');
                 item.className = 'danmu-item';
+                // 添加点击事件处理
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleDanmuItemSelection(item);
+                });
+                // 修改tabIndex以支持Tab键导航
+                item.tabIndex = 0;
+                // 优化Tab键导航
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Tab') {
+                        handleTabNavigation(item, e);
+                    } else if (userRole === 'owner') {
+                        switch(e.key) {
+                            case '1':
+                                socket.emit('delete', { index: uid });
+                                break;
+                            case '2':
+                                socket.emit('completed', { index: uid });
+                                break;
+                            case '3':
+                                const newText = prompt('请输入新的弹幕内容:', data.text[index]);
+                                if (newText) {
+                                    socket.emit('edit', { index: uid, text: newText });
+                                }
+                                break;
+                            case '4':
+                                socket.emit('get_acps', { index: uid });
+                                break;
+                        }
+                    }
+                });
+
+                // 添加焦点事件处理
+                item.addEventListener('focus', () => {
+                    handleDanmuItemSelection(item);
+                });
+                
+                // 存储uid属性，用于后续恢复选中状态
+                item.setAttribute('data-uid', uid);
 
                 // 昵称
                 const nickname = document.createElement('span');
@@ -277,7 +340,6 @@
                     actions.appendChild(completedBtn);
                     actions.appendChild(editBtn);
                     actions.appendChild(ac_ps_Btn);
-
                     item.appendChild(actions);
                 }
 
@@ -287,12 +349,30 @@
                 item.appendChild(createtime);
 
                 danmuContainer.appendChild(item);
+                
+                // 如果这个项目是之前选中的项目，恢复选中状态
+                if (selectedUid && uid === selectedUid) {
+                    currentSelectedDanmuItem = item;
+                    item.classList.add('selected');
+                    // 使用setTimeout确保DOM完全渲染后再设置焦点
+                    setTimeout(() => {
+                        item.focus();
+                    }, 0);
+                }
             });
+            
+            // 如果渲染后没有找到之前选中的项目（可能因为过滤或其他原因），但有其他项目可选
+            if (selectedUid && !currentSelectedDanmuItem && danmuContainer.children.length > 0) {
+                // 选择第一个可见的项目
+                const firstItem = danmuContainer.children[0];
+                currentSelectedDanmuItem = firstItem;
+                firstItem.classList.add('selected');
+                setTimeout(() => {
+                    firstItem.focus();
+                }, 0);
+            }
         }
-        // 添加弹幕按钮点击事件
-        document.getElementById('add-danmu-btn').onclick = () => {
-            showAddDanmuDialog();
-        };
+
 
         // 显示添加弹幕对话框
         function showAddDanmuDialog() {
@@ -361,20 +441,8 @@
 
             document.body.appendChild(dialog);
         }
-        // 添加全局快捷键监听
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key.toLowerCase() === 'i') {
-                e.preventDefault();
-                showSettingsDialog();
-            }
-        });
 
-        // 设置按钮点击事件
-        document.getElementById('settings-btn').onclick = () => {
-            showSettingsDialog();
-        };
-
-        // 显示设置窗口
+        //设置窗口函数
         function showSettingsDialog() {
             const overlay = document.createElement('div');
             overlay.className = 'acps-dialog-overlay';
@@ -437,6 +505,75 @@
 
             document.body.appendChild(dialog);
         }
+        //账密显示函数
+        function showAccountPasswordDialog(data, uid) {
+            const overlay = document.createElement('div');
+            overlay.className = 'acps-dialog-overlay';
+            document.body.appendChild(overlay);
+
+            const dialog = document.createElement('div');
+            dialog.className = 'acps-dialog';
+            dialog.innerHTML = `
+                <p><span id="current-account">${data.account}</span></p>
+                <p><span id="current-password">${data.password}</span></p>
+                <input type="text" id="acps-edit" placeholder="输入新的账号或密码">
+                <button id="acps-save">保存</button>
+                <button id="acps-cancel">取消</button>
+            `;
+
+            // 添加延时以触发动画
+            requestAnimationFrame(() => {
+                overlay.classList.add('show');
+                dialog.classList.add('show');
+            });
+
+            // 添加键盘事件监听
+            const handleKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    saveButton.click();
+                } else if (e.key === 'Escape') {
+                    cancelButton.click();
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
+
+            const saveButton = dialog.querySelector('#acps-save');
+            const cancelButton = dialog.querySelector('#acps-cancel');
+            const inputField = dialog.querySelector('#acps-edit');
+
+            saveButton.onclick = () => {
+                const newText = inputField.value;
+                if (newText) {
+                    socket.emit('update_acps', {
+                        index: uid,
+                        text: newText
+                    });
+                    closeDialog();
+                } else {
+                    //alert('请输入新的账号或密码');
+                }
+            };
+
+            cancelButton.onclick = () => {
+                closeDialog();
+            };
+            //关闭弹出对话框
+            const closeDialog = () => {
+                document.removeEventListener('keydown', handleKeydown);
+                overlay.classList.remove('show');
+                dialog.classList.remove('show');
+                setTimeout(() => {
+                    overlay.remove();
+                    dialog.remove();
+                }, 300);
+            };
+
+            document.body.appendChild(dialog);
+        }
+
+
+
+
     </script>
 </body>
 </html>
