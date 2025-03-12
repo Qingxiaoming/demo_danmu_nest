@@ -5,9 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>----</title>
     <link rel="stylesheet" href="styles.css">
-    
+    <style>
+        .draggable-gif {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 2000;
+            cursor: move;
+            height: 100px; /* 卡片高度 */
+            user-select: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
+    <div id="draggable-gif-container" class="draggable-gif">
+        <img src="./-klbw3Qjzp-691xZbT1kSdw-dw.gif" alt="可拖动GIF" height="100">
+    </div>
     <h1></h1>
     <div class="login-container">
         <input type="password" id="login-password" placeholder="输入密码">
@@ -667,8 +682,43 @@
             document.body.appendChild(dialog);
         }
 
-
-
+        // 拖动GIF的功能
+        const dragElement = document.getElementById("draggable-gif-container");
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        
+        if (dragElement) {
+            dragElement.onmousedown = dragMouseDown;
+        }
+        
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // 获取鼠标位置
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            // 鼠标移动时调用elementDrag函数
+            document.onmousemove = elementDrag;
+        }
+        
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // 计算新位置
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            // 设置元素的新位置
+            dragElement.style.top = (dragElement.offsetTop - pos2) + "px";
+            dragElement.style.left = (dragElement.offsetLeft - pos1) + "px";
+        }
+        
+        function closeDragElement() {
+            // 停止移动
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
 
     </script>
 </body>
