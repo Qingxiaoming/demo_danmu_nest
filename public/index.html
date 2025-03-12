@@ -50,6 +50,7 @@
         });
 
         socket.on('connect_error', () => {
+            console.log('连接到 Socket.IO 服务器失败');
             const errorElement = document.getElementById('server-error');
             errorElement.style.display = 'block';
         });
