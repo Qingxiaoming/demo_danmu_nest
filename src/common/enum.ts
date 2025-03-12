@@ -1,6 +1,5 @@
 export enum PLATFORM {
   platform = 'platform',
-  
   h5 = 'h5',
 }
 
@@ -37,7 +36,7 @@ export enum InspectionType {
   SIX = '废水',
   SEVEN = '前处理设备',
   EIGHT = '前处理槽液',
-}
+} 
 
 export enum ResultMethod {
   ONE = '数值',

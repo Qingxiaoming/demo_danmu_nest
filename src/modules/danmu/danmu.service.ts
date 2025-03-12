@@ -49,9 +49,7 @@ export class DanmuService {
         throw new Error('未找到账号信息');
       }
       console.log('查询到的账号密码:', result.account, result.password);
-      // 注意：这里返回的password是加密后的密码，但前端需要显示明文
-      // 由于无法解密，所以这里只能返回加密后的密码
-      // 前端显示时会显示加密后的密码，但用户输入明文密码后仍然可以通过验证
+      // 用户账号密码以明文存储，直接返回
       const returnData = { action: 'get_acps', data: {account: result.account, password: result.password}, uid };
       console.log('发送给前端的账号密码数据:', returnData);
       return returnData;
@@ -63,7 +61,7 @@ export class DanmuService {
 
   async updateAccountPassword(uid: string, account: string, password: string) {
     try {
-      // 直接存储明文密码到数据库
+      // 用户账号密码以明文存储，不再使用bcrypt加密
       await this.danmuModel.update({ account, password }, { where: { uid } });
       return { action: 'update_acps', success: true };
     } catch (err) {
@@ -197,39 +195,91 @@ export class DanmuService {
       });
       
       if (admin && admin.password) {
+        this.logger.log('从数据库获取到管理员密码');
         return admin.password;
       } else {
         // 如果没有找到管理员记录，返回默认密码哈希值
         this.logger.warn('未找到管理员记录，使用默认密码');
-        return '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm';
+        // 默认密码"admin"的bcrypt哈希值
+        return '$2a$10$QUFOcJ/kpS5XOShQwQ1rUOELnRjZpjnUu7EgzXRvzlxynuLxJQMdq';
       }
     } catch (err) {
       this.logger.error('获取管理员密码失败:', err);
       // 出错时返回默认密码哈希值
-      return '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm';
+      return '$2a$10$QUFOcJ/kpS5XOShQwQ1rUOELnRjZpjnUu7EgzXRvzlxynuLxJQMdq';
     }
   }
 
   /**
    * 验证管理员密码
-   * @param plainPassword 前端传入的明文密码
+   * @param password 前端传入的SHA-256哈希后的密码
    * @returns 验证结果
    */
-  async verifyPassword(plainPassword: string): Promise<{action: string; success: boolean; message?: string}> {
+  async verifyPassword(password: string): Promise<{action: string; success: boolean; message?: string; token?: string}> {
     try {
-      const adminPassword = await this.getAdminPassword();
-      // 前端已经使用bcrypt对密码进行了哈希处理
-      // 我们需要直接比较前端传来的明文密码与数据库中存储的哈希值是否匹配
-      this.logger.log(plainPassword,adminPassword );
-      const isMatch = (plainPassword == adminPassword);
+      this.logger.log('开始验证密码');
+      
+      // 获取数据库中存储的管理员密码（bcrypt加密后的）
+      const adminPasswordHash = await this.getAdminPassword();
+      this.logger.log(`从数据库获取到的管理员密码: ${adminPasswordHash}`);
+      this.logger.log(`传入的密码: ${password}`);
+
+      // 使用bcrypt.compare验证密码
+      const isMatch = await bcrypt.compare(password, adminPasswordHash);
+      this.logger.log(`密码验证结果: ${isMatch}`);
+
       return { 
         action: 'verify_password', 
         success: isMatch,
-        message: isMatch ? '验证成功' : '密码错误' 
+        message: isMatch ? '验证成功' : '密码错误',
+        token: undefined // 明确包含token字段，但值为undefined，让gateway填充
       };
     } catch (err) {
-      this.logger.error('密码验证失败:', err);
-      return { action: 'verify_password', success: false, message: '验证过程发生错误' };
+      this.logger.error('密码验证过程中发生错误:', err);
+      return { action: 'verify_password', success: false, message: '验证过程发生错误', token: undefined };
+    }
+  }
+
+  /**
+   * 重置管理员密码
+   * @param newPassword 新的明文密码
+   * @returns 重置结果
+   */
+  async resetAdminPassword(newPassword: string): Promise<{success: boolean; message: string}> {
+    try {
+      // 管理员密码仍然使用bcrypt加密存储
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      // 查找管理员记录
+      const admin = await this.danmuModel.findOne({
+        where: { uid: '0' }
+      });
+      
+      if (admin) {
+        // 如果管理员记录存在，更新密码
+        await this.danmuModel.update(
+          { password: hashedPassword },
+          { where: { uid: '0' } }
+        );
+      } else {
+        // 如果管理员记录不存在，创建一个新记录
+        await this.danmuModel.create({
+          uid: '0',
+          nickname: 'admin',
+          text: 'Administrator account',
+          account: 'admin',
+          password: hashedPassword,
+          status: 'notdisplay',
+          createtime: new Date().toISOString()
+        });
+      }
+      
+      this.logger.log('管理员密码重置成功');
+      return { success: true, message: '管理员密码重置成功' };
+    } catch (err) {
+      this.logger.error('重置管理员密码失败:', err);
+      return { success: false, message: '重置管理员密码失败: ' + err.message };
     }
   }
 }

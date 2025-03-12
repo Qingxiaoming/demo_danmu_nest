@@ -9,17 +9,21 @@ import { ExceptionCatchFilter } from './core/filter/exception';
 import { UserModule } from './modules/user/user.module';
 import { DanmuModule } from './modules/danmu/danmu.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     ScheduleModule.forRoot(),
     SequelizeModule.forRoot({
       dialect: 'mysql',
-      host: '127.0.0.1',
-      port: 3306,
-      username: 'root',
-      password: 'admin123',
-      database: 'b_schema',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
       models: [User, Danmu],
       autoLoadModels: true,
       synchronize: true,

@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AUTHORIZE_KEY_METADATA } from '../decorator/authorize';
-import { jwtDecode } from '../utils/crypt.util';
+import { jwtDecode, CustomJwtPayload } from '../utils/crypt.util';
 import E from 'src/common/error';
 import { PLATFORM } from 'src/common/enum';
 import { User } from 'src/model/user.model';

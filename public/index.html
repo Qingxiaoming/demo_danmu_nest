@@ -25,20 +25,21 @@
     </div>
     <h1></h1>
     <div class="login-container">
-        <input type="password" id="login-password" placeholder="输入密码">
-        <button id="login-btn">Start</button>
+        <form id="login-form" onsubmit="return false;">
+            <input type="password" id="login-password" name="password" placeholder="输入密码" autocomplete="current-password">
+            <button type="submit" id="login-btn">Start</button>
+        </form>
         <script>
-            document.getElementById('login-password').addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    document.getElementById('login-btn').click();
-                }
+            document.getElementById('login-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                document.getElementById('login-btn').click();
             });
         </script>
-        
     </div>
     <div class="toggle-container">
-        <button id="toggle-btn">O</button>
+        <button id="toggle-btn" title="切换显示全部/仅等待状态">O</button>
         <div id="password-error" class="error-message"></div>
+        <div id="login-status" class="status-message"></div>
     </div>
     <div id="danmu-container"></div>
     <div class="add-danmu-btn-container" style="display: none;">
@@ -54,8 +55,12 @@
         const danmuContainer = document.getElementById('danmu-container');
         const serverErrorElement = document.getElementById('server-error'); // 定义全局变量
 
-        const socket = io('http://127.0.0.1:5052');
-        let userRole = 'owner'; //'guest'; // 默认为游客模式
+        const socket = io('http://127.0.0.1:5052', {
+            auth: {
+                token: localStorage.getItem('auth_token')
+            }
+        });
+        let userRole = localStorage.getItem('auth_token') ? 'owner' : 'guest'; // 根据token判断角色
         let showNonWaiting = true; // 默认显示所有状态
         let currentSelectedDanmuItem = null; // 全局变量，用于追踪当前选中的弹幕项目
         let currentDanmuData = null;// 全局变量存储最新的弹幕数据
@@ -65,8 +70,19 @@
         // 页面加载完成后初始化UI状态
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化按钮显示状态
+            updateUIByRole();
             renderDanmu();
         });
+
+        // 根据用户角色更新UI
+        function updateUIByRole() {
+            const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
+            if (userRole === 'owner') {
+                addDanmuBtnContainer.style.display = 'block';
+            } else {
+                addDanmuBtnContainer.style.display = 'none';
+            }
+        }
 
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
@@ -76,6 +92,12 @@
 
         socket.on('connect_error', (error) => {
             console.log('连接到 Socket.IO 服务器失败', error);
+            if (error.message === 'Authentication failed') {
+                // 清除无效的认证信息
+                localStorage.removeItem('auth_token');
+                userRole = 'guest';
+                updateUIByRole();
+            }
             // 强制显示错误消息
             serverErrorElement.style.display = 'block'; 
             serverErrorElement.style.opacity = '1';
@@ -89,6 +111,31 @@
             serverErrorElement.style.opacity = '1';
             isConnected = false; // 设置连接状态为未连接
         });
+
+        // 添加会话过期处理
+        socket.on('session_expired', () => {
+            localStorage.removeItem('auth_token');
+            userRole = 'guest';
+            updateUIByRole();
+            renderDanmu();
+            
+            const errorElement = document.getElementById('password-error');
+            errorElement.textContent = '会话已过期，请重新登录';
+            errorElement.classList.add('show');
+            setTimeout(() => {
+                errorElement.classList.remove('show');
+            }, 3000);
+        });
+
+        // 显示认证错误提示
+        function showAuthError(message) {
+            const errorElement = document.getElementById('password-error');
+            errorElement.textContent = message || '需要登录才能执行此操作';
+            errorElement.classList.add('show');
+            setTimeout(() => {
+                errorElement.classList.remove('show');
+            }, 3000);
+        }
 
         // 初始化Socket事件监听
         setupSocketEvents();
@@ -143,6 +190,15 @@
             currentSelectedDanmuItem = item;
         }
 
+        // 检查是否有权限执行管理员操作
+        function checkAdminPermission() {
+            if (userRole !== 'owner') {
+                showAuthError();
+                return false;
+            }
+            return true;
+        }
+
         // 处理Tab键导航的通用函数
         function handleTabNavigation(item, e) {
             e.preventDefault();
@@ -160,9 +216,6 @@
             }
         }
 
-
-
-
         //管理员id验证函数
         document.getElementById('login-btn').onclick = () => {
             const plainPassword = document.getElementById('login-password').value;
@@ -175,29 +228,78 @@
                 }, 3000);
                 return;
             }
-            // 对密码进行SHA-256哈希处理
-            const hashedPassword = CryptoJS.SHA256(plainPassword).toString();
             
-            // 发送哈希后的密码到后端进行验证
-            socket.emit('verify_password', { password: hashedPassword, hashed: true });
+            // 显示登录中状态
+            const loginStatus = document.getElementById('login-status');
+            loginStatus.textContent = '登录中...';
+            loginStatus.style.color = '#5bc0de';
+            
+            // 使用SHA-256对密码进行加密
+            const hashedPassword = CryptoJS.SHA256(plainPassword).toString();
+            console.log('发送SHA-256哈希密码进行验证');
+            
+            // 发送加密后的密码到后端进行验证，不再发送isHashed参数
+            socket.emit('verify_password', { password: hashedPassword });
             
             socket.once('verify_password', (response) => {
+                console.log('收到验证响应:', response);
+                
                 if (response.success) {
-                    userRole = 'owner';
-                    renderDanmu();
-                    document.getElementById('password-error').classList.remove('show');
+                    console.log('验证成功,保存JWT令牌');
+                    
+                    if (response.token) {
+                        // 保存JWT令牌
+                        localStorage.setItem('auth_token', response.token);
+                        console.log('JWT令牌已保存到localStorage');
+                        
+                        // 更新socket连接的认证信息
+                        socket.auth = { token: response.token };
+                        socket.connect();
+                        
+                        userRole = 'owner';
+                        updateUIByRole();
+                        renderDanmu();
+                        
+                        // 清空密码输入框
+                        document.getElementById('login-password').value = '';
+                        
+                        // 显示登录成功消息
+                        const errorElement = document.getElementById('password-error');
+                        errorElement.textContent = '登录成功！';
+                        errorElement.style.color = '#5cb85c';
+                        errorElement.classList.add('show');
+                        setTimeout(() => {
+                            errorElement.classList.remove('show');
+                            errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
+                        }, 3000);
+                    } else {
+                        console.error('验证成功但未收到令牌');
+                        const errorElement = document.getElementById('password-error');
+                        errorElement.textContent = '登录成功但未收到令牌，请重试';
+                        errorElement.classList.add('show');
+                        setTimeout(() => {
+                            errorElement.classList.remove('show');
+                        }, 3000);
+                        
+                        // 更新登录状态
+                        loginStatus.textContent = '未登录: 访客模式';
+                        loginStatus.style.color = '#f0ad4e';
+                    }
                 } else {
+                    console.log('验证失败:', response.message);
                     const errorElement = document.getElementById('password-error');
                     errorElement.textContent = response.message || '密码错误';
                     errorElement.classList.add('show');
                     setTimeout(() => {
                         errorElement.classList.remove('show');
                     }, 3000);
+                    
+                    // 更新登录状态
+                    loginStatus.textContent = '未登录: 访客模式';
+                    loginStatus.style.color = '#f0ad4e';
                 }
             });
         };
-
-
 
         // 使用函数封装Socket.IO事件处理逻辑
         function setupSocketEvents() {
@@ -252,12 +354,7 @@
             if (!data || !data.uid) return;
             
             // 根据用户角色控制右下角按钮的显示/隐藏
-            const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
-            if (userRole === 'owner') {
-                addDanmuBtnContainer.style.display = 'block';
-            } else {
-                addDanmuBtnContainer.style.display = 'none';
-            }
+            updateUIByRole();
             
             // 保存当前选中项的信息
             let selectedUid = null;
@@ -296,7 +393,7 @@
                 item.addEventListener('keydown', (e) => {
                     if (e.key === 'Tab') {
                         handleTabNavigation(item, e);
-                    } else if (userRole === 'owner') {
+                    } else if (userRole === 'owner' && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
                         switch(e.key) {
                             case '1':
                                 socket.emit('delete', { index: uid });
@@ -345,7 +442,7 @@
                 createtime.textContent = `----${data.createtime[index].slice(5, 16)}`;
                 createtime.className = 'createtime';
 
-                // 如果用户是"主人"，显示操作按钮
+                // 只有认证用户才能看到操作按钮
                 if (userRole === 'owner') {
                     const actions = document.createElement('div');
                     actions.className = 'actions';
@@ -389,6 +486,7 @@
                             index: uid
                         });
                     };
+                    
                     actions.appendChild(deleteBtn);
                     actions.appendChild(completedBtn);
                     actions.appendChild(editBtn);
@@ -426,9 +524,10 @@
             }
         }
 
-
         // 显示添加弹幕对话框
         function showAddDanmuDialog() {
+            if (!checkAdminPermission()) return;
+            
             // 设置对话框显示状态为true
             isShowingDialog = true;
             
@@ -467,17 +566,28 @@
             };
             document.addEventListener('keydown', handleKeydown);
 
+            // 在保存弹幕时进行输入验证
+            function validateInput(text) {
+                if (!text || text.length > 500) {
+                    return false;
+                }
+                // 检查是否包含恶意内容
+                const maliciousPatterns = /<script|javascript:|onerror=|onclick=/i;
+                return !maliciousPatterns.test(text);
+            }
+
+            // 在提交前验证
             saveButton.onclick = () => {
                 const nickname = nicknameField.value;
                 const text = textField.value;
-                if (nickname && text) {
+                if (nickname && text && validateInput(nickname) && validateInput(text)) {
                     socket.emit('add_danmu', {
-                        nickname: nickname,
-                        text: text
+                        nickname: DOMPurify.sanitize(nickname),
+                        text: DOMPurify.sanitize(text)
                     });
                     closeDialog();
                 } else {
-                    alert('昵称和弹幕内容不能为空');
+                    alert('输入内容无效或过长');
                 }
             };
 
@@ -559,6 +669,8 @@
 
         // 更新设置界面
         function showSettingsDialog() {
+            if (!checkAdminPermission()) return;
+            
             // 设置对话框显示状态为true
             isShowingDialog = true;
             

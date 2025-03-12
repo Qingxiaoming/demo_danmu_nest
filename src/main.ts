@@ -4,11 +4,15 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ExceptionCatchFilter } from './core/filter/exception';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import * as csurf from 'csurf';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableCors({ origin: '*' }); // 允许跨域
   app.useStaticAssets(join(__dirname, '..', 'public'));
+
+  // 启用CSRF保护
+  app.use(csurf());
 
   // 增加swagger文档
   const config = new DocumentBuilder()

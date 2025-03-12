@@ -1,12 +1,21 @@
 import * as jwt from 'jsonwebtoken';
 import { APP_KEY } from 'src/common/config';
 
-export function jwtDecode(token: string) {
+// 定义自定义JwtPayload接口
+export interface CustomJwtPayload {
+  id: string | number;
+  platform?: string;
+  exp?: number;
+  iat?: number;
+  [key: string]: any;
+}
+
+export function jwtDecode(token: string): CustomJwtPayload | null {
   if (token) {
     token = token.substr(0, 7) == 'Bearer ' ? token.substr(7) : token;
     const secret = APP_KEY;
     try {
-      const payload = jwt.verify(token, secret);
+      const payload = jwt.verify(token, secret) as CustomJwtPayload;
       delete payload.exp;
       delete payload.iat;
       return payload;
