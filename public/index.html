@@ -62,6 +62,12 @@
         let isConnected = false; // 添加连接状态标志
         let isShowingDialog = false; // 添加对话框显示状态标志
 
+        // 页面加载完成后初始化UI状态
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化按钮显示状态
+            renderDanmu();
+        });
+
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
             serverErrorElement.style.display = 'none'; // 使用全局变量
@@ -178,7 +184,6 @@
             socket.once('verify_password', (response) => {
                 if (response.success) {
                     userRole = 'owner';
-                    document.querySelector('.add-danmu-btn-container').style.display = 'block';
                     renderDanmu();
                     document.getElementById('password-error').classList.remove('show');
                 } else {
@@ -245,6 +250,14 @@
             }
             // 如果没有数据可用，直接返回
             if (!data || !data.uid) return;
+            
+            // 根据用户角色控制右下角按钮的显示/隐藏
+            const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
+            if (userRole === 'owner') {
+                addDanmuBtnContainer.style.display = 'block';
+            } else {
+                addDanmuBtnContainer.style.display = 'none';
+            }
             
             // 保存当前选中项的信息
             let selectedUid = null;
@@ -750,7 +763,7 @@
                     // 发送到后端，按照后端期望的格式发送
                     socket.emit('update_acps', {
                         index: uid,
-                        text: `${newAccount} / ${newPassword}`  // 使用换行符分隔账号和密码
+                        text: `${newAccount} / ${newPassword}`
                     });
                     
                     // 更新显示
