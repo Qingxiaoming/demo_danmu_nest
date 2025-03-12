@@ -46,14 +46,12 @@
 
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
+            errorElement.style.display = 'none';
         });
 
         socket.on('connect_error', () => {
             const errorElement = document.getElementById('server-error');
             errorElement.style.display = 'block';
-            setTimeout(() => {
-                errorElement.style.display = 'none';
-            }, 5000); // 5秒后隐藏错误消息
         });
 
         // 初始化Socket事件监听
