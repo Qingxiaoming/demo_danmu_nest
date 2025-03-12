@@ -15,11 +15,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 @Injectable() 
 @WebSocketGateway(5052, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5051', 'http://127.0.0.1:5051'],
+    origin: '*', // 临时允许所有来源
     credentials: true,
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Authorization', 'auth_token']
+    allowedHeaders: ['Authorization', 'auth_token', 'content-type']
   },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
 })
 export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger = new Logger(DanmuGateway.name);
@@ -39,28 +43,26 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   async handleConnection(client: Socket) {
-    const clientIp = client.handshake.address;
-    this.logger.log(`客户端尝试连接: ${clientIp}`);
+    this.logger.log(`新的客户端连接: ${client.id}`);
+    this.logger.log(`客户端IP: ${client.handshake.address}`);
+    this.logger.log(`客户端Headers: ${JSON.stringify(client.handshake.headers)}`);
     
     // 验证连接
     const token = client.handshake.auth.token;
     if (!token) {
-      this.logger.warn(`客户端未提供认证令牌，以访客模式连接: ${clientIp}`);
-      await this.securityLogger.logAuthAttempt(clientIp, true, 'Guest mode connection');
-      // 允许未认证用户连接，但不添加到authenticatedClients列表
+      this.logger.warn(`客户端未提供认证令牌，以访客模式连接: ${client.id}`);
+      await this.securityLogger.logAuthAttempt(client.handshake.address, true, 'Guest mode connection');
       return;
     }
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       this.authenticatedClients.add(client.id);
-      this.logger.log(`客户端认证成功: ${clientIp}`);
-      await this.securityLogger.logAuthAttempt(clientIp, true);
+      this.logger.log(`客户端认证成功: ${client.id}`);
+      await this.securityLogger.logAuthAttempt(client.handshake.address, true);
     } catch (err) {
-      this.logger.error(`客户端认证失败: ${clientIp}`, err);
-      await this.securityLogger.logAuthAttempt(clientIp, false, err.message);
-      // 允许连接，但不添加到authenticatedClients列表
-      // client.disconnect(); // 不再断开连接
+      this.logger.error(`客户端认证失败: ${client.id}`, err);
+      await this.securityLogger.logAuthAttempt(client.handshake.address, false, err.message);
     }
   }
 
@@ -144,41 +146,43 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
    */
   @SubscribeMessage('verify_password')
   async handleVerifyPassword(@MessageBody() data: { password: string }, client: Socket) {
-    const clientIp = client?.handshake?.address || 'unknown';
-    this.logger.log(`收到密码验证请求，客户端IP: ${clientIp}`);
-    // 验证密码
-    this.logger.log('调用DanmuService.verifyPassword进行验证');
-    const result = await this.danmuService.verifyPassword(data.password);
-    
-    if (result.success) {
-      this.logger.log('密码验证成功，生成JWT令牌');
-      // 生成JWT令牌
-      const token = jwt.sign({ role: 'owner' }, JWT_SECRET, { expiresIn: '1h' });
-      this.logger.log(`生成的JWT令牌: ${token.substring(0, 20)}...`);
-      
-      if (client) {
-        this.logger.log(`将客户端 ${client.id} 添加到已认证客户端列表`);
-        this.authenticatedClients.add(client.id);
+    try {
+      const result = await this.danmuService.verifyPassword(data.password);
+      if (result.success) {
+        const token = jwt.sign({ role: 'owner' }, JWT_SECRET, { expiresIn: '1h' });
+        this.logger.log('密码验证成功，已生成JWT令牌');
+        
+        // 构建响应对象
+        const response = {
+          success: true,
+          token: token,
+          message: '验证成功'
+        };
+        
+        // 使用server.emit发送响应
+        this.server.emit('verify_password', response);
+        
+        return response;
+      } else {
+        const response = {
+          success: false,
+          message: '密码验证失败'
+        };
+        
+        this.server.emit('verify_password', response);
+        return response;
       }
+    } catch (error) {
+      this.logger.error(`验证过程发生错误: ${error.message}`);
       
-      // 确保token字段被正确设置
-      result.token = token;
-      this.logger.log('令牌已添加到验证结果中');
+      const errorResponse = {
+        success: false,
+        message: '验证过程发生错误'
+      };
       
-      await this.securityLogger.logAuthAttempt(clientIp, true, 'Password verification successful');
-      this.logger.log(`密码验证成功，客户端IP: ${clientIp}`);
-    } else {
-      this.logger.warn(`密码验证失败，客户端IP: ${clientIp}`);
-      await this.securityLogger.logAuthAttempt(clientIp, false, 'Invalid password');
+      this.server.emit('verify_password', errorResponse);
+      return errorResponse;
     }
-    
-    if (client) {
-      this.logger.log('向客户端发送验证结果');
-      this.logger.log(`验证结果包含令牌: ${result.token ? '是' : '否'}`);
-      client.emit('verify_password', result);
-    }
-    
-    return result;
   }
 
   /**
@@ -209,7 +213,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
    * @returns {Promise<{success: boolean}>} 添加操作的结果
    * @emits add_danmu 广播添加结果给所有客户端
    */
-  @SubscribeMessage('add_danmu')
+  @SubscribeMessage('add_danmu') 
   async handleAddDanmu(@MessageBody() data: { nickname: string; text: string }, client: Socket) {
     try {
       // 添加弹幕需要认证
