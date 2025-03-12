@@ -37,22 +37,31 @@
     <script>
 
         const danmuContainer = document.getElementById('danmu-container');
+        const serverErrorElement = document.getElementById('server-error'); // 定义全局变量
 
         const socket = io('http://127.0.0.1:5052');
         let userRole = 'guest'; // 默认为游客模式
         let showNonWaiting = true; // 默认显示所有状态
         let currentSelectedDanmuItem = null; // 全局变量，用于追踪当前选中的弹幕项目
         let currentDanmuData = null;// 全局变量存储最新的弹幕数据
+        let isConnected = false; // 添加连接状态标志
 
         socket.on('connect', () => {
             console.log('连接到 Socket.IO 服务器');
-            errorElement.style.display = 'none';
+            serverErrorElement.style.display = 'none'; // 使用全局变量
+            isConnected = true; // 设置连接状态为已连接
         });
 
-        socket.on('connect_error', () => {
-            console.log('连接到 Socket.IO 服务器失败');
-            const errorElement = document.getElementById('server-error');
-            errorElement.style.display = 'block';
+        socket.on('connect_error', (error) => {
+            console.log('连接到 Socket.IO 服务器失败', error);
+            serverErrorElement.style.display = 'block'; // 使用全局变量
+            isConnected = false; // 设置连接状态为未连接
+        });
+
+        socket.on('disconnect', () => {
+            console.log('与 Socket.IO 服务器断开连接');
+            serverErrorElement.style.display = 'block'; // 使用全局变量
+            isConnected = false; // 设置连接状态为未连接
         });
 
         // 初始化Socket事件监听
