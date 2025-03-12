@@ -72,70 +72,82 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
 
   /**
    * 处理弹幕删除事件
-   * @param data.index 要删除的弹幕ID
-   * @returns {Promise<{success: boolean}>} 删除操作的结果
-   * @emits delete 广播删除结果给所有客户端
    */
   @SubscribeMessage('delete')
   async handleDelete(@MessageBody() data: { index: string }, client: Socket) {
-    const clientIp = client.handshake.address;
-    if (!this.isAuthenticated(client)) {
-      await this.securityLogger.logUnauthorizedAccess(clientIp, 'delete', `Attempted to delete danmu ${data.index}`);
-      return { success: false, message: '未授权的操作' };
+    try {
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的删除操作，客户端ID: ${client.id}`);
+        return { success: false, message: '未授权的操作' };
+      }
+
+      const result = await this.danmuService.updateStatus(data.index, 'deleted');
+      this.server.emit('delete', result);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`删除操作失败: ${error.message}`);
+      return { success: false, message: '操作失败' };
     }
-    const result = await this.danmuService.updateStatus(data.index, 'deleted');
-    await this.securityLogger.logSecurityEvent('delete', `Danmu ${data.index} deleted by ${clientIp}`);
-    this.server.emit('delete', result);
-    return { success: true };
   }
 
   /**
    * 处理弹幕完成事件
-   * @param data.index 要标记为完成的弹幕ID
-   * @returns {Promise<{success: boolean}>} 标记完成操作的结果
-   * @emits completed 广播完成状态给所有客户端
    */
   @SubscribeMessage('completed')
   async handleCompleted(@MessageBody() data: { index: string }, client: Socket) {
-    if (!this.isAuthenticated(client)) {
-      return { success: false, message: '未授权的操作' };
+    try {
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的完成操作，客户端ID: ${client.id}`);
+        return { success: false, message: '未授权的操作' };
+      }
+
+      const result = await this.danmuService.updateStatus(data.index, 'completed');
+      this.server.emit('completed', result);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`完成操作失败: ${error.message}`);
+      return { success: false, message: '操作失败' };
     }
-    const result = await this.danmuService.updateStatus(data.index, 'completed');
-    this.server.emit('completed', result);
-    return { success: true };
   }
 
   /**
    * 处理弹幕编辑事件
-   * @param data.index 要编辑的弹幕ID
-   * @param data.text 新的弹幕内容
-   * @returns {Promise<{success: boolean}>} 编辑操作的结果
-   * @emits edit 广播编辑结果给所有客户端
    */
   @SubscribeMessage('edit')
   async handleEdit(@MessageBody() data: { index: string; text: string }, client: Socket) {
-    if (!this.isAuthenticated(client)) {
-      return { success: false, message: '未授权的操作' };
+    try {
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的编辑操作，客户端ID: ${client.id}`);
+        return { success: false, message: '未授权的操作' };
+      }
+
+      const result = await this.danmuService.updateText(data.index, data.text);
+      this.server.emit('edit', result);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`编辑操作失败: ${error.message}`);
+      return { success: false, message: '操作失败' };
     }
-    const result = await this.danmuService.updateText(data.index, data.text);
-    this.server.emit('edit', result);
-    return { success: true };
   }
 
   /**
    * 获取账号密码信息
-   * @param data.index 弹幕ID
-   * @returns {Promise<{success: boolean}>} 获取操作的结果
-   * @emits get_acps 广播账号密码信息给所有客户端
    */
   @SubscribeMessage('get_acps')
   async handleGetAcps(@MessageBody() data: { index: string }, client: Socket) {
-    if (!this.isAuthenticated(client)) {
-      return { success: false, message: '未授权的操作' };
+    try {
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的账密获取操作，客户端ID: ${client.id}`);
+        return { success: false, message: '未授权的操作' };
+      }
+
+      const result = await this.danmuService.getAccountPassword(data.index);
+      this.server.emit('get_acps', result);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`获取账密信息失败: ${error.message}`);
+      return { success: false, message: '操作失败' };
     }
-    const result = await this.danmuService.getAccountPassword(data.index);
-    this.server.emit('get_acps', result);
-    return { success: true };
   }
 
   /**
@@ -187,45 +199,41 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
 
   /**
    * 更新账号密码信息
-   * @param data.index 弹幕ID
-   * @param data.text 新的账号密码信息，格式为"account / password"
-   * @returns {Promise<{success: boolean}>} 更新操作的结果
-   * @emits update_acps 广播更新结果给所有客户端
    */
   @SubscribeMessage('update_acps')
   async handleUpdateAcps(@MessageBody() data: { index: string; text: string }, client: Socket) {
-    const clientIp = client.handshake.address;
-    if (!this.isAuthenticated(client)) {
-      await this.securityLogger.logUnauthorizedAccess(clientIp, 'update_acps', `Attempted to update account/password for danmu ${data.index}`);
-      return { success: false, message: '未授权的操作' };
+    try {
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的账密更新操作，客户端ID: ${client.id}`);
+        return { success: false, message: '未授权的操作' };
+      }
+
+      const [account, password] = data.text.split(' / ');
+      const result = await this.danmuService.updateAccountPassword(data.index, account, password);
+      this.server.emit('update_acps', result);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`更新账密信息失败: ${error.message}`);
+      return { success: false, message: '操作失败' };
     }
-    const [account, password] = data.text.split(' / ');
-    const result = await this.danmuService.updateAccountPassword(data.index, account, password);
-    await this.securityLogger.logSecurityEvent('update_acps', `Account/password updated for danmu ${data.index} by ${clientIp}`);
-    this.server.emit('update_acps', result);
-    return { success: true };
   }
 
   /**
    * 处理添加弹幕事件
-   * @param data.nickname 弹幕昵称
-   * @param data.text 弹幕内容
-   * @returns {Promise<{success: boolean}>} 添加操作的结果
-   * @emits add_danmu 广播添加结果给所有客户端
    */
-  @SubscribeMessage('add_danmu') 
+  @SubscribeMessage('add_danmu')
   async handleAddDanmu(@MessageBody() data: { nickname: string; text: string }, client: Socket) {
     try {
-      // 添加弹幕需要认证
       if (!this.isAuthenticated(client)) {
+        this.logger.warn(`未授权的添加弹幕操作，客户端ID: ${client.id}`);
         return { success: false, message: '未授权的操作' };
       }
-      
+
       const result = await this.danmuService.addDanmu(data.nickname, data.text);
       this.server.emit('add_danmu', { success: true, message: '添加弹幕成功' });
       return { success: true };
     } catch (error) {
-      this.logger.error('添加弹幕失败:', error);
+      this.logger.error(`添加弹幕失败: ${error.message}`);
       this.server.emit('add_danmu', { success: false, message: error.message || '添加弹幕失败' });
       return { success: false };
     }

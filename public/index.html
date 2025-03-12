@@ -244,47 +244,33 @@
             socket.once('verify_password', (response) => {
                 console.log('收到验证响应:', response);
                 
-                if (response.success) {
+                if (response.success && response.token) {
                     console.log('验证成功,保存JWT令牌');
                     
-                    if (response.token) {
-                        // 保存JWT令牌
-                        localStorage.setItem('auth_token', response.token);
-                        console.log('JWT令牌已保存到localStorage');
-                        
-                        // 更新socket连接的认证信息
-                        socket.auth = { token: response.token };
-                        socket.connect();
-                        
-                        userRole = 'owner';
-                        updateUIByRole();
-                        renderDanmu();
-                        
-                        // 清空密码输入框
-                        document.getElementById('login-password').value = '';
-                        
-                        // 显示登录成功消息
-                        const errorElement = document.getElementById('password-error');
-                        errorElement.textContent = '登录成功！';
-                        errorElement.style.color = '#5cb85c';
-                        errorElement.classList.add('show');
-                        setTimeout(() => {
-                            errorElement.classList.remove('show');
-                            errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
-                        }, 3000);
-                    } else {
-                        console.error('验证成功但未收到令牌');
-                        const errorElement = document.getElementById('password-error');
-                        errorElement.textContent = '登录成功但未收到令牌，请重试';
-                        errorElement.classList.add('show');
-                        setTimeout(() => {
-                            errorElement.classList.remove('show');
-                        }, 3000);
-                        
-                        // 更新登录状态
-                        loginStatus.textContent = '未登录: 访客模式';
-                        loginStatus.style.color = '#f0ad4e';
-                    }
+                    // 保存JWT令牌
+                    localStorage.setItem('auth_token', response.token);
+                    console.log('JWT令牌已保存到localStorage');
+                    
+                    // 更新socket连接的认证信息
+                    socket.auth = { token: response.token };
+                    socket.disconnect().connect(); // 断开后重新连接以应用新的token
+                    
+                    userRole = 'owner';
+                    updateUIByRole();
+                    renderDanmu();
+                    
+                    // 清空密码输入框
+                    document.getElementById('login-password').value = '';
+                    
+                    // 显示登录成功消息
+                    const errorElement = document.getElementById('password-error');
+                    errorElement.textContent = '登录成功！';
+                    errorElement.style.color = '#5cb85c';
+                    errorElement.classList.add('show');
+                    setTimeout(() => {
+                        errorElement.classList.remove('show');
+                        errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
+                    }, 3000);
                 } else {
                     console.log('验证失败:', response.message);
                     const errorElement = document.getElementById('password-error');
