@@ -40,6 +40,7 @@
         <button id="toggle-btn" title="切换显示全部/仅等待状态">O</button>
         <div id="password-error" class="error-message"></div>
         <div id="login-status" class="status-message"></div>
+        <button id="logout-btn" title="退出登录" style="display: none; margin-left: 10px; background-color: #d9534f; color: white; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer;">退出</button>
     </div>
     <div id="danmu-container"></div>
     <div class="add-danmu-btn-container" style="display: none;">
@@ -69,9 +70,11 @@
 
         // 页面加载完成后初始化UI状态
         document.addEventListener('DOMContentLoaded', () => {
-            // 初始化按钮显示状态
+            // 初始化UI状态
             updateUIByRole();
-            renderDanmu();
+            
+            // 设置登出按钮事件
+            document.getElementById('logout-btn').addEventListener('click', logout);
             
             // 检查是否有保存的令牌
             const savedToken = localStorage.getItem('auth_token');
@@ -138,11 +141,24 @@
         // 根据用户角色更新UI
         function updateUIByRole() {
             const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
+            const logoutBtn = document.getElementById('logout-btn');
+            
             if (userRole === 'owner') {
                 addDanmuBtnContainer.style.display = 'block';
+                logoutBtn.style.display = 'inline-block';
+                updateLoginStatus('已登录', '#5cb85c');
             } else {
                 addDanmuBtnContainer.style.display = 'none';
+                logoutBtn.style.display = 'none';
+                updateLoginStatus('未登录', '#ff5722');
             }
+        }
+
+        // 更新登录状态显示
+        function updateLoginStatus(text, color) {
+            const loginStatus = document.getElementById('login-status');
+            loginStatus.textContent = text;
+            loginStatus.style.color = color;
         }
 
         // 显示连接状态的函数
@@ -1026,6 +1042,36 @@
             // 停止移动
             document.onmouseup = null;
             document.onmousemove = null;
+        }
+
+        // 登出功能
+        function logout() {
+            // 删除localStorage中的token
+            localStorage.removeItem('auth_token');
+            
+            // 更新用户角色
+            userRole = 'guest';
+            
+            // 更新UI显示
+            updateUIByRole();
+            
+            // 断开并重新连接WebSocket（以访客模式）
+            if (socket.connected) {
+                socket.auth = {}; // 清空认证信息
+                socket.disconnect().connect();
+            }
+            
+            // 显示登出成功消息
+            const errorElement = document.getElementById('password-error');
+            errorElement.textContent = '已成功退出登录';
+            errorElement.style.color = '#5bc0de';
+            errorElement.classList.add('show');
+            setTimeout(() => {
+                errorElement.classList.remove('show');
+                errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
+            }, 3000);
+            
+            console.log('用户已登出，认证信息已清除');
         }
 
     </script>

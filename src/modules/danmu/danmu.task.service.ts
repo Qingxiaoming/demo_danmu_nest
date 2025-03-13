@@ -33,7 +33,7 @@ export class DanmuTaskService {
           // 避免重复处理同一条弹幕
           if (!this.printedDanmuIds.has(danmuId)) {
             // 记录弹幕内容
-            this.logger.log('收到B站弹幕', { 
+            this.logger.log( '收到B站弹幕', { 
               nickname: danmu.nickname, 
               time: new Date().toLocaleString(), 
               text: danmu.text 

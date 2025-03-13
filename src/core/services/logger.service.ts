@@ -40,9 +40,51 @@ export class EnhancedLoggerService implements LoggerService {
             winston.format.colorize({ all: true }),
             winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
             winston.format.printf(({ timestamp, level, message, context, ...meta }) => {
-              return `[${timestamp}] [${level.toUpperCase()}] [${context || this.context}] ${message} ${
-                Object.keys(meta).length ? `- ${inspect(meta, { depth: 5, colors: false })}` : ''
-              }`;
+              // 检查是否是弹幕消息
+              if (typeof message === 'string' && message.includes('收到B站弹幕')) {
+                // 只有当有弹幕内容时才显示
+                if (meta && typeof meta === 'object') {
+                  const nickname = meta.nickname || '未知用户';
+                  const text = meta.text || '';
+                  if (text) {
+                    return `【弹幕】${nickname}: ${text}`;
+                  }
+                }
+                // 如果没有弹幕内容，则不显示任何内容
+                return '';
+              }
+              
+              // 检查是否是包含关键词的弹幕
+              if (typeof message === 'string' && message.includes('弹幕包含关键词')) {
+                // 只有当有弹幕内容时才显示
+                if (meta && typeof meta === 'object') {
+                  const nickname = meta.nickname || '未知用户';
+                  const text = meta.text || '';
+                  if (text) {
+                    return `【保存】${nickname}: ${text}`;
+                  }
+                }
+                // 如果没有弹幕内容，则不显示任何内容
+                return '';
+              }
+              
+              // 对于其他日志，使用简化格式
+              const metaKeys = Object.keys(meta);
+              let metaStr = '';
+              
+              // 只显示clientId和关键操作信息，忽略其他元数据
+              if (metaKeys.length > 0) {
+                const simplifiedMeta: Record<string, any> = {};
+                if ('clientId' in meta) simplifiedMeta.clientId = meta.clientId;
+                if ('danmuId' in meta) simplifiedMeta.danmuId = meta.danmuId;
+                
+                // 只有当有简化后的元数据时才显示
+                if (Object.keys(simplifiedMeta).length > 0) {
+                  metaStr = ` - ${JSON.stringify(simplifiedMeta)}`;
+                }
+              }
+              
+              return `[${level.toUpperCase()}] [${context || this.context}] ${message}${metaStr}`;
             })
           ),
         }),
