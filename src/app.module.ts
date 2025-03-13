@@ -12,6 +12,7 @@ import { LoggerModule } from './core/modules/logger.module';
 import { APP_FILTER } from '@nestjs/core';
 import { WsExceptionFilter } from './core/filters/ws-exception.filter';
 import { EnhancedLoggerService } from './core/services/logger.service';
+import { MusicModule } from './modules/music/music.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { EnhancedLoggerService } from './core/services/logger.service';
       synchronize: true,
       logging: false,
     }),
-    DanmuModule
+    DanmuModule,
+    MusicModule
   ],
   controllers: [AppController],
   providers: [
