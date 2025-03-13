@@ -37,6 +37,12 @@ export class Song {
 
   @ApiProperty({ description: '平台特定的额外数据', required: false })
   data?: any;
+  
+  @ApiProperty({ description: '错误信息', required: false })
+  error?: {
+    code: number;
+    message: string;
+  };
 }
 
 // 搜索结果接口

@@ -54,9 +54,9 @@ export class QQMusicService {
   /**
    * 获取歌曲播放URL
    * @param songmid 歌曲mid
-   * @returns 歌曲URL
+   * @returns 歌曲URL或错误对象
    */
-  async getSongUrl(songmid: string): Promise<string> {
+  async getSongUrl(songmid: string): Promise<string | { error: number; message: string }> {
     try {
       // 这里使用一个简化的方法获取歌曲URL
       // 实际项目中可能需要更复杂的逻辑来获取真实的播放地址
@@ -84,21 +84,36 @@ export class QQMusicService {
           }
         }
         
-        this.logger.warn(`无法从QQ音乐获取播放地址: ${JSON.stringify(response.data)}`);
-        throw E.RESOURCE_NOT_FOUND.create('无法获取QQ音乐播放地址');
+        this.logger.warn(`无法从QQ音乐获取播放地址`);
+        // 不抛出异常，而是返回错误对象
+        return { 
+          error: E.RESOURCE_NOT_FOUND.error, 
+          message: '无法获取QQ音乐播放地址' 
+        };
       } catch (error) {
         clearTimeout(timeoutId);
-        throw error;
+        // 不再抛出异常，而是继续处理
+        if (axios.isAxiosError(error)) {
+          if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
+            this.logger.error(`获取QQ音乐播放地址请求超时`);
+            return { 
+              error: E.RATE_LIMIT_EXCEEDED.error, 
+              message: '获取QQ音乐播放地址请求超时，请稍后再试' 
+            };
+          }
+        }
+        this.logger.error(`获取QQ音乐播放地址失败: ${error.message}`, error.stack);
+        return { 
+          error: E.API_ERROR.error, 
+          message: '获取QQ音乐播放地址失败' 
+        };
       }
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
-          this.logger.error(`获取QQ音乐播放地址请求超时`);
-          throw E.RATE_LIMIT_EXCEEDED.create('获取QQ音乐播放地址请求超时，请稍后再试');
-        }
-      }
-      this.logger.error(`获取QQ音乐播放地址失败: ${error.message}`, error.stack);
-      throw E.API_ERROR.create('获取QQ音乐播放地址失败');
+      this.logger.error(`获取QQ音乐播放地址过程中发生错误: ${error.message}`, error.stack);
+      return { 
+        error: E.SYSTEM_ERROR.error, 
+        message: '获取QQ音乐播放地址过程中发生错误' 
+      };
     }
   }
 
@@ -111,26 +126,44 @@ export class QQMusicService {
     try {
       const url = `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${songmid}&format=json&nobase64=1`;
       
-      const response = await axios.get(url, {
-        headers: {
-          Referer: 'https://y.qq.com',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        },
-        timeout: this.REQUEST_TIMEOUT,
-      });
-
-      if (response.data && response.data.lyric) {
-        return response.data.lyric;
-      }
+      // 创建一个可取消的超时控制器
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
       
-      this.logger.warn(`无法从QQ音乐获取歌词: ${JSON.stringify(response.data)}`);
-      return '';
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
-        this.logger.error(`获取QQ音乐歌词请求超时: ${error.message}`);
-        return ''; // 歌词获取失败不影响主流程
+      try {
+        const response = await axios.get(url, {
+          headers: {
+            Referer: 'https://y.qq.com',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          },
+          timeout: this.REQUEST_TIMEOUT,
+          signal: controller.signal,
+        });
+        
+        // 请求成功，清除超时计时器
+        clearTimeout(timeoutId);
+
+        if (response.data && response.data.lyric) {
+          return response.data.lyric;
+        }
+        
+        this.logger.warn(`无法从QQ音乐获取歌词: ${JSON.stringify(response.data)}`);
+        return '';
+      } catch (error) {
+        // 请求失败，清除超时计时器
+        clearTimeout(timeoutId);
+        
+        if (axios.isAxiosError(error)) {
+          if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
+            this.logger.error(`获取QQ音乐歌词请求超时: ${error.message}`);
+            return ''; // 歌词获取失败不影响主流程
+          }
+        }
+        this.logger.error(`获取QQ音乐歌词失败: ${error.message}`, error.stack);
+        return '';
       }
-      this.logger.error(`获取QQ音乐歌词失败: ${error.message}`, error.stack);
+    } catch (error) {
+      this.logger.error(`获取QQ音乐歌词过程中发生错误: ${error.message}`, error.stack);
       return '';
     }
   }

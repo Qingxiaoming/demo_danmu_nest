@@ -17,6 +17,99 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             border-radius: 5px;
         }
+        
+        /* 音乐播放器样式 */
+        .music-player {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .music-player.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        .music-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .music-cover {
+            width: 60px;
+            height: 60px;
+            border-radius: 5px;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+        
+        .music-details {
+            flex: 1;
+        }
+        
+        .music-title {
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .music-artist {
+            font-size: 12px;
+            color: #666;
+            margin: 0;
+        }
+        
+        .music-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .music-progress {
+            width: 100%;
+            height: 4px;
+            background-color: #ddd;
+            border-radius: 2px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .music-progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            border-radius: 2px;
+            width: 0;
+        }
+        
+        .music-lyrics {
+            margin-top: 10px;
+            max-height: 60px;
+            overflow-y: auto;
+            font-size: 12px;
+            text-align: center;
+            color: #333;
+        }
+        
+        .current-lyric {
+            font-weight: bold;
+            color: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -48,6 +141,22 @@
         <button id="settings-btn" title="设置"><i class="fas fa-cog"></i></button>
     </div>
     <div id="server-error" class="error-message" style="display: none; color: red; font-weight: bold; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);">服务器未连接</div>
+    <div id="music-player" class="music-player">
+        <div class="music-info">
+            <img id="music-cover" class="music-cover" src="" alt="封面">
+            <div class="music-details">
+                <h3 id="music-title" class="music-title"></h3>
+                <p id="music-artist" class="music-artist"></p>
+            </div>
+        </div>
+        <div class="music-progress">
+            <div id="music-progress-bar" class="music-progress-bar"></div>
+        </div>
+        <div class="music-lyrics" id="music-lyrics">
+            <p class="current-lyric"></p>
+        </div>
+        <audio id="music-audio" style="display: none;"></audio>
+    </div>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
@@ -67,6 +176,17 @@
         let currentDanmuData = null;// 全局变量存储最新的弹幕数据
         let isConnected = false; // 添加连接状态标志
         let isShowingDialog = false; // 添加对话框显示状态标志
+
+        // 音乐播放器相关变量
+        const musicPlayer = document.getElementById('music-player');
+        const musicCover = document.getElementById('music-cover');
+        const musicTitle = document.getElementById('music-title');
+        const musicArtist = document.getElementById('music-artist');
+        const musicAudio = document.getElementById('music-audio');
+        const musicProgressBar = document.getElementById('music-progress-bar');
+        const musicLyrics = document.getElementById('music-lyrics');
+        let currentLyrics = [];
+        let lyricTimer = null;
 
         // 页面加载完成后初始化UI状态
         document.addEventListener('DOMContentLoaded', () => {
@@ -363,7 +483,7 @@
         function setupSocketEvents() {
             // 定义所有需要监听的事件
             const socketEvents = [
-                'update', 'get_acps', 'update_acps', 'add_danmu'
+                'update', 'get_acps', 'update_acps', 'add_danmu', 'play_song'
             ];
             // 为每个事件添加监听器
             socketEvents.forEach(eventName => {
@@ -395,6 +515,13 @@
                     break;
                     
                 case 'add_danmu':
+                    break;
+                    
+                case 'play_song':
+                    console.log('收到点歌请求:', data);
+                    if (data && data.success && data.song) {
+                        playSong(data.song);
+                    }
                     break;
                     
                 default:
@@ -1072,6 +1199,157 @@
             }, 3000);
             
             console.log('用户已登出，认证信息已清除');
+        }
+
+        // 播放歌曲
+        function playSong(song) {
+            // 设置歌曲信息
+            musicTitle.textContent = song.name;
+            musicArtist.textContent = song.artist;
+            musicCover.src = song.cover || 'default-cover.jpg';
+            
+            // 检查是否有错误信息
+            if (song.error) {
+                console.error('歌曲信息获取失败:', song.error.message, '错误码:', song.error.code);
+                // 显示错误提示
+                musicLyrics.innerHTML = `<p class="current-lyric" style="color: #d9534f;">无法播放：${song.error.message}</p>`;
+                musicPlayer.classList.add('show');
+                
+                // 3秒后隐藏播放器
+                setTimeout(() => {
+                    musicPlayer.classList.remove('show');
+                }, 3000);
+                return;
+            }
+            
+            // 检查URL是否存在
+            if (!song.url) {
+                console.error('歌曲URL不存在，无法播放:', song.name);
+                // 显示错误提示
+                musicLyrics.innerHTML = '<p class="current-lyric" style="color: #d9534f;">无法播放：获取歌曲URL失败</p>';
+                musicPlayer.classList.add('show');
+                
+                // 3秒后隐藏播放器
+                setTimeout(() => {
+                    musicPlayer.classList.remove('show');
+                }, 3000);
+                return;
+            }
+            
+            // 设置音频源
+            musicAudio.src = song.url;
+            
+            // 解析歌词
+            parseLyrics(song.lrc || '');
+            
+            // 显示播放器
+            musicPlayer.classList.add('show');
+            
+            // 播放音乐
+            musicAudio.play().catch(error => {
+                console.error('播放音乐失败:', error);
+                // 显示错误提示
+                musicLyrics.innerHTML = '<p class="current-lyric" style="color: #d9534f;">播放失败：' + error.message + '</p>';
+                
+                // 3秒后隐藏播放器
+                setTimeout(() => {
+                    musicPlayer.classList.remove('show');
+                }, 3000);
+            });
+            
+            // 更新进度条
+            musicAudio.addEventListener('timeupdate', updateProgress);
+            
+            // 歌曲播放结束时隐藏播放器
+            musicAudio.addEventListener('ended', () => {
+                musicPlayer.classList.remove('show');
+                clearInterval(lyricTimer);
+            });
+            
+            // 开始歌词滚动
+            startLyricScroll();
+        }
+        
+        // 更新进度条
+        function updateProgress() {
+            if (musicAudio.duration) {
+                const progress = (musicAudio.currentTime / musicAudio.duration) * 100;
+                musicProgressBar.style.width = `${progress}%`;
+            }
+        }
+        
+        // 解析LRC格式歌词
+        function parseLyrics(lrcText) {
+            currentLyrics = [];
+            musicLyrics.innerHTML = '';
+            
+            if (!lrcText) {
+                musicLyrics.innerHTML = '<p class="current-lyric">暂无歌词</p>';
+                return;
+            }
+            
+            try {
+                const lines = lrcText.split('\n');
+                const pattern = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+                
+                lines.forEach(line => {
+                    const match = line.match(pattern);
+                    if (match) {
+                        const minutes = parseInt(match[1]);
+                        const seconds = parseInt(match[2]);
+                        const milliseconds = parseInt(match[3]);
+                        const text = match[4].trim();
+                        
+                        if (text) {
+                            const time = minutes * 60 + seconds + milliseconds / 1000;
+                            currentLyrics.push({ time, text });
+                        }
+                    }
+                });
+                
+                // 按时间排序
+                currentLyrics.sort((a, b) => a.time - b.time);
+                
+                // 初始显示第一句歌词
+                if (currentLyrics.length > 0) {
+                    musicLyrics.innerHTML = `<p class="current-lyric">${currentLyrics[0].text}</p>`;
+                } else {
+                    musicLyrics.innerHTML = '<p class="current-lyric">暂无歌词</p>';
+                }
+            } catch (error) {
+                console.error('解析歌词失败:', error);
+                musicLyrics.innerHTML = '<p class="current-lyric">歌词解析失败</p>';
+            }
+        }
+        
+        // 开始歌词滚动
+        function startLyricScroll() {
+            clearInterval(lyricTimer);
+            
+            if (currentLyrics.length === 0) return;
+            
+            lyricTimer = setInterval(() => {
+                try {
+                    const currentTime = musicAudio.currentTime;
+                    let currentLyric = '';
+                    
+                    // 查找当前时间对应的歌词
+                    for (let i = 0; i < currentLyrics.length; i++) {
+                        if (i === currentLyrics.length - 1 || 
+                            (currentTime >= currentLyrics[i].time && currentTime < currentLyrics[i + 1].time)) {
+                            currentLyric = currentLyrics[i].text;
+                            break;
+                        }
+                    }
+                    
+                    if (currentLyric) {
+                        musicLyrics.innerHTML = `<p class="current-lyric">${currentLyric}</p>`;
+                    }
+                } catch (error) {
+                    console.error('歌词滚动出错:', error);
+                    clearInterval(lyricTimer);
+                }
+            }, 100);
         }
 
     </script>

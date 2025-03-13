@@ -65,9 +65,9 @@ export class NeteaseMusicService {
   /**
    * 获取歌曲播放URL
    * @param songId 歌曲ID
-   * @returns 歌曲URL
+   * @returns 歌曲URL或错误对象
    */
-  async getSongUrl(songId: string): Promise<string> {
+  async getSongUrl(songId: string): Promise<string | { error: number; message: string }> {
     try {
       const url = `${this.baseUrl}/song/enhance/player/url?id=${songId}&ids=[${songId}]&br=320000`;
       
@@ -94,20 +94,35 @@ export class NeteaseMusicService {
         }
         
         this.logger.warn(`无法从网易云音乐获取播放地址: ${JSON.stringify(response.data)}`);
-        throw E.RESOURCE_NOT_FOUND.create('无法获取网易云音乐播放地址');
+        // 不抛出异常，而是返回错误对象
+        return { 
+          error: E.RESOURCE_NOT_FOUND.error, 
+          message: '无法获取网易云音乐播放地址' 
+        };
       } catch (error) {
         clearTimeout(timeoutId);
-        throw error;
+        // 不再抛出异常，而是继续处理
+        if (axios.isAxiosError(error)) {
+          if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
+            this.logger.error(`获取网易云音乐播放地址请求超时`);
+            return { 
+              error: E.RATE_LIMIT_EXCEEDED.error, 
+              message: '获取网易云音乐播放地址请求超时，请稍后再试' 
+            };
+          }
+        }
+        this.logger.error(`获取网易云音乐播放地址失败: ${error.message}`, error.stack);
+        return { 
+          error: E.API_ERROR.error, 
+          message: '获取网易云音乐播放地址失败' 
+        };
       }
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
-          this.logger.error(`获取网易云音乐播放地址请求超时`);
-          throw E.RATE_LIMIT_EXCEEDED.create('获取网易云音乐播放地址请求超时，请稍后再试');
-        }
-      }
-      this.logger.error(`获取网易云音乐播放地址失败: ${error.message}`, error.stack);
-      throw E.API_ERROR.create('获取网易云音乐播放地址失败');
+      this.logger.error(`获取网易云音乐播放地址过程中发生错误: ${error.message}`, error.stack);
+      return { 
+        error: E.SYSTEM_ERROR.error, 
+        message: '获取网易云音乐播放地址过程中发生错误' 
+      };
     }
   }
 
@@ -120,26 +135,44 @@ export class NeteaseMusicService {
     try {
       const url = `${this.baseUrl}/song/lyric?id=${songId}&lv=1&kv=1&tv=-1`;
       
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Referer': 'https://music.163.com/',
-        },
-        timeout: this.REQUEST_TIMEOUT,
-      });
-
-      if (response.data && response.data.lrc && response.data.lrc.lyric) {
-        return response.data.lrc.lyric;
-      }
+      // 创建一个可取消的超时控制器
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
       
-      this.logger.warn(`无法从网易云音乐获取歌词: ${JSON.stringify(response.data)}`);
-      return '';
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
-        this.logger.error(`获取网易云音乐歌词请求超时: ${error.message}`);
-        return ''; // 歌词获取失败不影响主流程
+      try {
+        const response = await axios.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': 'https://music.163.com/',
+          },
+          timeout: this.REQUEST_TIMEOUT,
+          signal: controller.signal,
+        });
+        
+        // 请求成功，清除超时计时器
+        clearTimeout(timeoutId);
+
+        if (response.data && response.data.lrc && response.data.lrc.lyric) {
+          return response.data.lrc.lyric;
+        }
+        
+        this.logger.warn(`无法从网易云音乐获取歌词: ${JSON.stringify(response.data)}`);
+        return '';
+      } catch (error) {
+        // 请求失败，清除超时计时器
+        clearTimeout(timeoutId);
+        
+        if (axios.isAxiosError(error)) {
+          if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
+            this.logger.error(`获取网易云音乐歌词请求超时: ${error.message}`);
+            return ''; // 歌词获取失败不影响主流程
+          }
+        }
+        this.logger.error(`获取网易云音乐歌词失败: ${error.message}`, error.stack);
+        return '';
       }
-      this.logger.error(`获取网易云音乐歌词失败: ${error.message}`, error.stack);
+    } catch (error) {
+      this.logger.error(`获取网易云音乐歌词过程中发生错误: ${error.message}`, error.stack);
       return '';
     }
   }

@@ -23,12 +23,12 @@ export class MusicService {
   async searchSong(keyword: string, limit: number = 5): Promise<CombinedSearchResult> {
     this.logger.log(`搜索歌曲: ${keyword}`);
     
-    // 创建一个Promise.race，确保整体搜索不会超时
-    const timeoutPromise = new Promise<null>((_, reject) => {
-      setTimeout(() => reject(new Error('搜索请求超时')), this.REQUEST_TIMEOUT);
-    });
-    
     try {
+      // 创建一个Promise.race，确保整体搜索不会超时
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error('搜索请求超时')), this.REQUEST_TIMEOUT);
+      });
+      
       // 并行搜索两个平台，使用Promise.allSettled确保一个平台失败不会影响其他平台
       const searchPromise = Promise.allSettled([
         this.qqMusicService.search(keyword, limit),
@@ -73,6 +73,10 @@ export class MusicService {
         }
       }
 
+      // 记录搜索成功的日志
+      const totalSongs = qqSongs.length + neteaseSongs.length;
+      this.logger.log(`搜索歌曲成功: ${keyword}, 共找到 ${totalSongs} 首歌曲`);
+      
       return result;
     } catch (error) {
       this.logger.error(`搜索歌曲失败: ${error.message}`, error.stack);
@@ -95,12 +99,7 @@ export class MusicService {
    */
   async getSongUrl(song: Song): Promise<Song> {
     try {
-      // 创建一个Promise.race，确保获取URL不会超时
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(E.RATE_LIMIT_EXCEEDED.create('获取歌曲URL请求超时')), this.REQUEST_TIMEOUT);
-      });
-      
-      let urlPromise: Promise<string>;
+      let urlPromise: Promise<string | { error: number; message: string }>;
       
       switch (song.platform) {
         case MusicPlatform.QQ:
@@ -110,16 +109,69 @@ export class MusicService {
           urlPromise = this.neteaseMusicService.getSongUrl(song.id);
           break;
         default:
-          throw E.INVALID_PARAMS.create('不支持的音乐平台');
+          this.logger.warn(`不支持的音乐平台: ${song.platform}，无法获取URL`);
+          return { 
+            ...song, 
+            url: '',
+            error: {
+              code: E.INVALID_PARAMS.error,
+              message: `不支持的音乐平台: ${song.platform}`
+            }
+          };
       }
       
-      // 使用Promise.race确保获取URL不会超时
-      const url = await Promise.race([urlPromise, timeoutPromise]);
+      // 创建一个可取消的超时Promise
+      let timeoutId: NodeJS.Timeout;
+      const timeoutPromise = new Promise<{ error: number; message: string }>((resolve) => {
+        timeoutId = setTimeout(() => {
+          this.logger.warn(`获取歌曲URL请求超时: ${song.name}`);
+          resolve({ 
+            error: E.RATE_LIMIT_EXCEEDED.error, 
+            message: '获取歌曲URL请求超时' 
+          });
+        }, this.REQUEST_TIMEOUT);
+      });
       
-      return { ...song, url };
+      // 使用Promise.race，并确保在获取结果后清除超时计时器
+      const result = await Promise.race([urlPromise, timeoutPromise]);
+      clearTimeout(timeoutId); // 无论成功还是超时，都清除计时器
+      
+      // 检查结果是否为错误对象
+      if (typeof result === 'object' && 'error' in result) {
+        this.logger.warn(`获取歌曲URL失败: ${result.message}`, { 
+          songName: song.name, 
+          artist: song.artist, 
+          platform: song.platform,
+          errorCode: result.error
+        });
+        
+        return { 
+          ...song, 
+          url: '', 
+          error: {
+            code: result.error,
+            message: result.message
+          }
+        };
+      }
+      
+      this.logger.log(`获取歌曲URL成功: ${song.name} - ${song.artist}`);
+      return { ...song, url: result };
     } catch (error) {
       this.logger.error(`获取歌曲URL失败: ${error.message}`, error.stack);
-      throw error;
+      
+      // 返回没有URL的歌曲信息，同时添加错误信息
+      const errorCode = error.error || E.API_ERROR.error;
+      const errorMessage = error.message || '获取歌曲URL失败';
+      
+      return { 
+        ...song, 
+        url: '', 
+        error: {
+          code: errorCode,
+          message: errorMessage
+        }
+      };
     }
   }
 
@@ -130,14 +182,6 @@ export class MusicService {
    */
   async getLyric(song: Song): Promise<Song> {
     try {
-      // 创建一个Promise.race，确保获取歌词不会超时
-      const timeoutPromise = new Promise<string>((resolve) => {
-        setTimeout(() => {
-          this.logger.warn(`获取歌词请求超时`);
-          resolve(''); // 歌词获取超时返回空字符串，不影响主流程
-        }, this.REQUEST_TIMEOUT);
-      });
-      
       let lrcPromise: Promise<string>;
       
       switch (song.platform) {
@@ -149,17 +193,51 @@ export class MusicService {
           break;
         default:
           this.logger.warn(`不支持的音乐平台: ${song.platform}，无法获取歌词`);
-          return { ...song, lrc: '' };
+          return { 
+            ...song, 
+            lrc: '',
+            error: {
+              code: E.INVALID_PARAMS.error,
+              message: `不支持的音乐平台: ${song.platform}`
+            }
+          };
       }
       
-      // 使用Promise.race确保获取歌词不会超时
+      // 创建一个可取消的超时Promise
+      let timeoutId: NodeJS.Timeout;
+      const timeoutPromise = new Promise<string>((resolve) => {
+        timeoutId = setTimeout(() => {
+          this.logger.warn(`获取歌词请求超时: ${song.name}`);
+          resolve(''); // 歌词获取超时返回空字符串，不影响主流程
+        }, this.REQUEST_TIMEOUT);
+      });
+      
+      // 使用Promise.race，并确保在获取结果后清除超时计时器
       const lrc = await Promise.race([lrcPromise, timeoutPromise]);
+      clearTimeout(timeoutId); // 无论成功还是超时，都清除计时器
+      
+      if (lrc) {
+        this.logger.log(`获取歌词成功: ${song.name} - ${song.artist}`);
+      } else {
+        this.logger.warn(`歌词内容为空: ${song.name} - ${song.artist}`);
+      }
       
       return { ...song, lrc };
     } catch (error) {
       this.logger.error(`获取歌词失败: ${error.message}`, error.stack);
-      // 获取歌词失败不应该影响整个流程
-      return { ...song, lrc: '' };
+      
+      // 获取歌词失败不应该影响整个流程，但添加错误信息
+      const errorCode = error.error || E.API_ERROR.error;
+      const errorMessage = error.message || '获取歌词失败';
+      
+      return { 
+        ...song, 
+        lrc: '',
+        error: {
+          code: errorCode,
+          message: errorMessage
+        }
+      };
     }
   }
 
@@ -169,14 +247,38 @@ export class MusicService {
    * @returns 完整的歌曲信息
    */
   async getFullSongInfo(song: Song): Promise<Song> {
+    this.logger.log(`开始获取完整歌曲信息: ${song.name} - ${song.artist} (${song.platform})`);
+    
     try {
       // 先获取URL，再获取歌词
       const songWithUrl = await this.getSongUrl(song);
-      return this.getLyric(songWithUrl);
+      const fullSong = await this.getLyric(songWithUrl);
+      
+      // 如果获取URL时出现错误，保留错误信息
+      if (songWithUrl.error) {
+        fullSong.error = songWithUrl.error;
+        this.logger.warn(`获取URL失败，但继续获取歌词: ${song.name}, 错误: ${songWithUrl.error.message}`);
+      }
+      
+      this.logger.log(`获取完整歌曲信息成功: ${song.name} - ${song.artist}`);
+      return fullSong;
     } catch (error) {
+      this.logger.error(`获取完整歌曲信息过程中出错: ${error.message}`, error.stack);
+      
       // 如果获取URL失败，仍然尝试获取歌词
-      this.logger.error(`获取歌曲URL失败，尝试继续获取歌词: ${error.message}`);
-      return this.getLyric(song);
+      this.logger.warn(`尝试继续获取歌词: ${song.name}`);
+      const songWithLrc = await this.getLyric(song);
+      
+      // 添加错误信息
+      const errorCode = error.error || E.API_ERROR.error;
+      const errorMessage = error.message || '获取完整歌曲信息失败';
+      
+      songWithLrc.error = {
+        code: errorCode,
+        message: errorMessage
+      };
+      
+      return songWithLrc;
     }
   }
 } 

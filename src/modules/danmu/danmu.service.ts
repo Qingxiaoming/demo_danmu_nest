@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { log } from 'console';
 import E, { wrapAsync } from '../../common/error';
 import { EnhancedLoggerService } from '../../core/services/logger.service';
+import { MusicService } from '../music/music.service';
 
 @Injectable()
 export class DanmuService {
@@ -13,6 +14,7 @@ export class DanmuService {
   constructor(
     @InjectModel(Danmu)
     private readonly danmuModel: typeof Danmu,
+    private readonly musicService: MusicService,
     loggerService: EnhancedLoggerService
   ) {
     this.logger = loggerService.setContext('DanmuService');
@@ -117,6 +119,39 @@ export class DanmuService {
         E.DANMU_TEXT_TOO_LONG.throw('弹幕内容不能超过200个字符');
       }
       
+      // 检查是否是点歌请求
+      let songInfo = null;
+      if (text.startsWith('点歌') || text.startsWith('点歌 ')) {
+        const songName = text.substring(text.startsWith('点歌 ') ? 3 : 2).trim();
+        if (songName) {
+          try {
+            // 搜索歌曲
+            this.logger.log(`收到点歌请求: "${songName}"`);
+            const searchResult = await this.musicService.searchSong(songName);
+            
+            if (searchResult && searchResult.defaultSong) {
+              this.logger.log(`找到匹配歌曲: ${searchResult.defaultSong.name} - ${searchResult.defaultSong.artist} (${searchResult.defaultSong.platform})`);
+              songInfo = await this.musicService.getFullSongInfo(searchResult.defaultSong);
+              
+              if (songInfo.url) {
+                this.logger.log(`点歌成功: ${songInfo.name} - ${songInfo.artist}, URL获取成功`);
+              } else {
+                this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但URL获取失败`);
+              }
+            } else {
+              this.logger.warn(`点歌失败: 未找到歌曲 "${songName}"`);
+            }
+          } catch (error) {
+            this.logger.error(`点歌过程中发生错误: ${error.message}`, { 
+              songName, 
+              errorStack: error.stack,
+              errorCode: error.error || 'UNKNOWN_ERROR'
+            });
+            // 错误不会阻止弹幕创建
+          }
+        }
+      }
+      
       const danmu = await this.danmuModel.create({
         uid: Date.now().toString(),
         nickname,
@@ -127,12 +162,15 @@ export class DanmuService {
         password: ''
       });
       
+      this.logger.log(`弹幕创建成功: ${nickname}, ID: ${danmu.uid}`);
+      
       return {
         success: true,
-        data: danmu
+        data: danmu,
+        songInfo
       };
     } catch (error) {
-      this.logger.error('添加弹幕失败', { nickname, error });
+      this.logger.error('添加弹幕失败', { nickname, errorMessage: error.message, errorStack: error.stack });
       throw error;
     }
   }

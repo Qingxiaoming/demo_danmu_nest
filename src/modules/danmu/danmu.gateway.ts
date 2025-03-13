@@ -6,6 +6,9 @@ import * as jwt from 'jsonwebtoken';
 import { SecurityLoggerService } from '../../core/services/security-logger.service';
 import E, { normalizeError } from '../../common/error';
 import { EnhancedLoggerService } from '../../core/services/logger.service';
+import { BilibiliService } from './bilibili.service';
+import { MusicService } from '../music/music.service';
+import { Interval } from '@nestjs/schedule';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -57,12 +60,19 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   // 认证冷却时间（毫秒）
   private readonly AUTH_COOLDOWN_MS = 5 * 60 * 1000; // 5分钟
   
+  // B站弹幕相关
+  private readonly roomId = 23415751; // B站直播间ID，与原始b.js保持一致
+  private readonly printedDanmuIds = new Set(); // 存储已处理的弹幕ID，避免重复处理
+  private readonly filterKeyword = "花"; // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
+  
   @WebSocketServer()
   server: Server;
 
   constructor(
     private readonly danmuService: DanmuService,
     private readonly securityLogger: SecurityLoggerService,
+    private readonly bilibiliService: BilibiliService,
+    private readonly musicService: MusicService,
     loggerService: EnhancedLoggerService
   ) {
     this.logger = loggerService.setContext('DanmuGateway');
@@ -76,6 +86,129 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     setInterval(() => this.cleanupDisconnectedClients(), 30 * 60 * 1000); // 每30分钟
   }
   
+  /**
+   * 每30秒从B站获取一次弹幕数据
+   */
+  @Interval(30000)
+  async fetchBilibiliDanmu() {
+    try {
+      const danmuList = await this.bilibiliService.getDanmu(this.roomId);
+      if (danmuList && danmuList.length > 0) {
+        for (const danmu of danmuList) {
+          const danmuId = danmu.id_str || danmu.uid; // 弹幕的唯一标识符
+          
+          // 避免重复处理同一条弹幕
+          if (!this.printedDanmuIds.has(danmuId)) {
+            // 记录弹幕内容
+            this.logger.log('收到B站弹幕', { 
+              nickname: danmu.nickname, 
+              time: new Date().toLocaleString(), 
+              text: danmu.text 
+            });
+            
+            // 检查是否是点歌请求
+            if (danmu.text.startsWith('点歌') || danmu.text.startsWith('点歌 ')) {
+              await this.handleBilibiliSongRequest(danmu);
+            }
+            
+            // 检查弹幕内容是否包含指定关键词
+            if (danmu.text.includes(this.filterKeyword)) {
+              this.logger.log(`弹幕包含关键词"${this.filterKeyword}"，保存到数据库`, {
+                nickname: danmu.nickname,
+                text: danmu.text
+              });
+              
+              await this.danmuService.createDanmu({
+                uid: danmu.uid.toString(), // 直接使用B站弹幕的原始uid
+                nickname: danmu.nickname,
+                text: danmu.text,
+                account: '',
+                password: '',
+                status: 'waiting', // 与b.js保持一致，使用waiting状态
+                createtime: new Date()
+              });
+            }
+            // 将弹幕ID添加到已处理集合中
+            this.printedDanmuIds.add(danmuId);
+          }
+        }
+      } else {
+        this.logger.debug('没有新的B站弹幕数据');
+      }
+    } catch (error) {
+      this.logger.error('获取并保存B站弹幕时发生错误', { 
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  }
+  
+  /**
+   * 处理B站弹幕中的点歌请求
+   * @param danmu B站弹幕数据
+   */
+  private async handleBilibiliSongRequest(danmu: any) {
+    const songName = danmu.text.substring(danmu.text.startsWith('点歌 ') ? 3 : 2).trim();
+    if (!songName) return;
+    
+    try {
+      // 搜索歌曲
+      this.logger.log(`收到B站点歌请求: "${songName}" 来自: ${danmu.nickname}`);
+      const searchResult = await this.musicService.searchSong(songName);
+      
+      if (searchResult && searchResult.defaultSong) {
+        this.logger.log(`找到匹配歌曲: ${searchResult.defaultSong.name} - ${searchResult.defaultSong.artist} (${searchResult.defaultSong.platform})`);
+        const songInfo = await this.musicService.getFullSongInfo(searchResult.defaultSong);
+        
+        // 发送歌曲信息到前端
+        await this.sendSongInfoToClients(songInfo);
+      } else {
+        this.logger.warn(`B站点歌失败: 未找到歌曲 "${songName}"`);
+      }
+    } catch (error) {
+      this.logger.error(`B站点歌过程中发生错误: ${error.message}`, { 
+        songName, 
+        nickname: danmu.nickname,
+        errorStack: error.stack,
+        errorCode: error.error || 'UNKNOWN_ERROR'
+      });
+    }
+  }
+  
+  /**
+   * 发送歌曲信息到所有连接的客户端
+   * @param songInfo 歌曲信息
+   */
+  private async sendSongInfoToClients(songInfo: any) {
+    if (!this.server) {
+      this.logger.warn('WebSocket服务器未初始化，无法发送歌曲信息');
+      return;
+    }
+    
+    if (songInfo.error) {
+      this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但出现错误: ${songInfo.error.message} (错误码: ${songInfo.error.code})`);
+      this.server.emit('play_song', {
+        success: true,
+        song: songInfo
+      });
+      this.logger.warn(`已发送带有错误信息的歌曲信息到前端: ${songInfo.name} (错误: ${songInfo.error.message})`);
+    } else if (songInfo.url) {
+      this.logger.log(`点歌成功: ${songInfo.name} - ${songInfo.artist}, URL获取成功`);
+      this.server.emit('play_song', {
+        success: true,
+        song: songInfo
+      });
+      this.logger.log(`已发送歌曲信息到前端: ${songInfo.name}`);
+    } else {
+      this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但URL获取失败`);
+      this.server.emit('play_song', {
+        success: true,
+        song: songInfo
+      });
+      this.logger.warn(`已发送不完整的歌曲信息到前端: ${songInfo.name} (无URL)`);
+    }
+  }
+
   // 清理长时间未活动的客户端状态
   private cleanupDisconnectedClients() {
     const now = Date.now();
@@ -591,11 +724,46 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       }
 
       const result = await this.danmuService.addDanmu(nickname, text);
+      
+      // 如果是点歌请求且找到了歌曲，发送歌曲信息
+      if (result.songInfo) {
+        const songInfo = result.songInfo;
+        
+        if (songInfo.error) {
+          this.logger.warn('发送带有错误信息的点歌信息到前端', { 
+            songName: songInfo.name,
+            artist: songInfo.artist,
+            platform: songInfo.platform,
+            errorCode: songInfo.error.code,
+            errorMessage: songInfo.error.message
+          });
+        } else if (songInfo.url) {
+          this.logger.log('发送点歌信息到前端', { 
+            songName: songInfo.name,
+            artist: songInfo.artist,
+            platform: songInfo.platform,
+            hasUrl: true
+          });
+        } else {
+          this.logger.warn('发送不完整的点歌信息到前端（无URL）', { 
+            songName: songInfo.name,
+            artist: songInfo.artist,
+            platform: songInfo.platform
+          });
+        }
+        
+        this.server.emit('play_song', {
+          success: true,
+          song: songInfo
+        });
+      }
+      
       this.server.emit('add_danmu', { success: true, message: '添加弹幕成功' });
       this.logger.log('添加弹幕操作成功', { 
         clientId: client.id, 
         nickname,
-        textLength: text.length
+        textLength: text.length,
+        isSongRequest: text.startsWith('点歌')
       });
       return { success: true };
     } catch (error) {
