@@ -8,7 +8,7 @@ interface ErrorCode {
 }
 
 // 定义标准错误接口
-interface StandardError extends Error {
+export interface StandardError extends Error {
   error: number;
   statusCode: number;
   data?: any;
@@ -122,7 +122,7 @@ function createError(errorCode: ErrorCode, customMessage: string | null = null, 
  * @param defaultErrorCode 默认错误码
  * @returns 标准错误对象
  */
-function normalizeError(error: any, defaultErrorCode: ErrorCode = E.UNDEFINED): StandardError {
+export function normalizeError(error: any, defaultErrorCode: ErrorCode = E.UNDEFINED): StandardError {
   if (error && typeof error.error === 'number') {
     // 已经是标准错误格式
     return error as StandardError;
@@ -141,7 +141,7 @@ function normalizeError(error: any, defaultErrorCode: ErrorCode = E.UNDEFINED): 
  * @param defaultErrorCode 默认错误码
  * @returns 包装后的异步函数
  */
-function wrapAsync<T extends (...args: any[]) => Promise<any>>(
+export function wrapAsync<T extends (...args: any[]) => Promise<any>>(
   fn: T, 
   defaultErrorCode: ErrorCode = E.UNDEFINED
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
@@ -168,9 +168,6 @@ Object.keys(E).forEach(key => {
     throw createError(errorCode, customMessage, data);
   };
 });
-
-// 导出错误工具
-export { createError, normalizeError, wrapAsync, ErrorCode, StandardError };
 
 // 导出错误码
 export default E;

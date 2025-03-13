@@ -3,7 +3,7 @@ const path = require('path');
 const readline = require('readline');
 
 // 配置
-const LOG_DIR = path.join(__dirname, '..', 'logs');
+const LOG_DIR = path.join(process.cwd(), 'logs');
 const DEFAULT_LINES = 50;
 
 // 命令行参数
@@ -13,7 +13,9 @@ const options = {
   lines: DEFAULT_LINES,
   filter: null,
   level: null,
-  json: false
+  json: true,
+  danmu: false,
+  all: false
 };
 
 // 解析命令行参数
@@ -27,8 +29,10 @@ for (let i = 0; i < args.length; i++) {
     options.filter = args[++i];
   } else if (arg === '--level' || arg === '-l') {
     options.level = args[++i].toUpperCase();
-  } else if (arg === '--json' || arg === '-j') {
-    options.json = true;
+  } else if (arg === '--danmu' || arg === '-d') {
+    options.danmu = true;
+  } else if (arg === '--all' || arg === '-a') {
+    options.all = true;
   } else if (arg === '--help' || arg === '-h') {
     showHelp();
     process.exit(0);
@@ -43,22 +47,23 @@ function showHelp() {
   console.log(`
 日志查看工具
 
-用法: node view-logs.js [文件名] [选项]
+用法: node scripts/view-logs.js [文件名] [选项]
 
 选项:
   --file, -f <文件名>    指定要查看的日志文件，不指定则列出所有日志文件
   --lines, -n <行数>     显示的行数，默认为 ${DEFAULT_LINES}
   --filter, -s <关键词>  过滤包含关键词的行
-  --level, -l <级别>     过滤指定级别的日志 (INFO, WARN, ERROR)
-  --json, -j             以JSON格式输出
+  --level, -l <级别>     过滤指定级别的日志 (INFO, WARN, ERROR, DEBUG)
+  --danmu, -d            只显示弹幕消息
+  --all, -a              显示所有行，不限制行数
   --help, -h             显示此帮助信息
 
 示例:
-  node view-logs.js                             # 列出所有日志文件
-  node view-logs.js security.log                # 查看security.log文件
-  node view-logs.js --file security.log         # 同上
-  node view-logs.js -f security.log -n 100      # 查看最后100行
-  node view-logs.js -f security.log -s "认证成功" # 过滤包含"认证成功"的行
+  node scripts/view-logs.js                                # 列出所有日志文件
+  node scripts/view-logs.js application-2025-03-13.log     # 查看指定日志文件
+  node scripts/view-logs.js -f application-2025-03-13.log -d  # 只查看弹幕消息
+  node scripts/view-logs.js -f error-2025-03-13.log        # 查看错误日志
+  node scripts/view-logs.js -f application-2025-03-13.log -s "保存"  # 过滤包含"保存"的行
 `);
 }
 
@@ -126,7 +131,17 @@ function formatLogLine(line, isJson) {
       // 上下文
       coloredOutput += `\x1b[35m[${context}]\x1b[0m `;
       
-      // 消息
+      // 特殊处理弹幕消息
+      if (message.includes('弹幕') && parsed.nickname && parsed.text) {
+        if (message.includes('保存')) {
+          coloredOutput = `\x1b[33m【保存】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text}\x1b[0m`;
+        } else {
+          coloredOutput = `\x1b[32m【弹幕】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text}\x1b[0m`;
+        }
+        return coloredOutput;
+      }
+      
+      // 普通消息
       coloredOutput += message;
       
       // 其他元数据
@@ -137,7 +152,16 @@ function formatLogLine(line, isJson) {
       delete meta.message;
       
       if (Object.keys(meta).length > 0) {
-        coloredOutput += ` \x1b[90m${JSON.stringify(meta)}\x1b[0m`;
+        // 只显示关键元数据
+        const simplifiedMeta = {};
+        if ('nickname' in meta) simplifiedMeta.nickname = meta.nickname;
+        if ('text' in meta) simplifiedMeta.text = meta.text;
+        if ('clientId' in meta) simplifiedMeta.clientId = meta.clientId;
+        if ('danmuId' in meta) simplifiedMeta.danmuId = meta.danmuId;
+        
+        if (Object.keys(simplifiedMeta).length > 0) {
+          coloredOutput += ` \x1b[90m${JSON.stringify(simplifiedMeta)}\x1b[0m`;
+        }
       }
       
       return coloredOutput;
@@ -149,8 +173,8 @@ function formatLogLine(line, isJson) {
   }
 }
 
-// 读取日志文件的最后N行
-async function readLogFile(filename, lines, filter, level) {
+// 读取日志文件
+async function readLogFile(filename, options) {
   const filePath = path.join(LOG_DIR, filename);
   
   if (!fs.existsSync(filePath)) {
@@ -166,31 +190,47 @@ async function readLogFile(filename, lines, filter, level) {
     });
     
     const allLines = [];
+    let lineCount = 0;
     
     for await (const line of rl) {
-      // 过滤逻辑
-      if (filter && !line.includes(filter)) continue;
-      if (level) {
-        // 尝试解析JSON格式的日志
+      lineCount++;
+      
+      // 弹幕过滤
+      if (options.danmu) {
         try {
-          const logEntry = JSON.parse(line);
-          if (logEntry.level && logEntry.level.toUpperCase() !== level) continue;
+          const parsed = JSON.parse(line);
+          if (!parsed.message || (!parsed.message.includes('弹幕') && !parsed.message.includes('保存'))) {
+            continue;
+          }
+        } catch {
+          continue;
+        }
+      }
+      
+      // 关键词过滤
+      if (options.filter && !line.includes(options.filter)) continue;
+      
+      // 日志级别过滤
+      if (options.level) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.level && parsed.level.toUpperCase() !== options.level) continue;
         } catch {
           // 非JSON格式，尝试正则匹配
-          if (!line.includes(`[${level}]`)) continue;
+          if (!line.includes(`[${options.level}]`)) continue;
         }
       }
       
       allLines.push(line);
       
-      // 保持数组大小不超过所需行数
-      if (allLines.length > lines) {
+      // 保持数组大小不超过所需行数，除非要求显示所有行
+      if (!options.all && allLines.length > options.lines) {
         allLines.shift();
       }
     }
     
     // 输出日志
-    console.log(`\n显示 ${filename} 的最后 ${allLines.length} 行:`);
+    console.log(`\n显示 ${filename} 的${options.all ? '所有' : '最后 ' + allLines.length} 行 (共 ${lineCount} 行):`);
     console.log('='.repeat(80));
     
     if (allLines.length === 0) {
@@ -204,10 +244,11 @@ async function readLogFile(filename, lines, filter, level) {
     console.log('='.repeat(80));
     
     // 显示过滤信息
-    if (filter || level) {
+    if (options.filter || options.level || options.danmu) {
       let filterInfo = '过滤条件: ';
-      if (filter) filterInfo += `关键词="${filter}" `;
-      if (level) filterInfo += `级别=${level}`;
+      if (options.filter) filterInfo += `关键词="${options.filter}" `;
+      if (options.level) filterInfo += `级别=${options.level} `;
+      if (options.danmu) filterInfo += `只显示弹幕 `;
       console.log(filterInfo);
     }
   } catch (error) {
@@ -218,13 +259,13 @@ async function readLogFile(filename, lines, filter, level) {
 // 主函数
 async function main() {
   if (options.file) {
-    await readLogFile(options.file, options.lines, options.filter, options.level);
+    await readLogFile(options.file, options);
   } else {
     const logFiles = await listLogFiles();
     if (logFiles.length > 0) {
       console.log('\n使用方法:');
-      console.log('  node view-logs.js <文件名>        # 查看特定日志文件');
-      console.log('  node view-logs.js --help         # 显示更多选项');
+      console.log('  node scripts/view-logs.js <文件名>        # 查看特定日志文件');
+      console.log('  node scripts/view-logs.js --help         # 显示更多选项');
     }
   }
 }
