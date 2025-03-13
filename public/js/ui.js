@@ -388,6 +388,20 @@ function initUIEvents() {
         showAddDanmuDialog();
     };
     
+    // 初始化切换按钮状态
+    const toggleBtn = document.getElementById('toggle-btn');
+    const eyeIcon = toggleBtn.querySelector('i');
+    
+    if (window.danmu.showNonWaiting) {
+        // 显示所有状态 - 睁眼
+        eyeIcon.className = 'fas fa-eye';
+        toggleBtn.title = '当前显示全部状态，点击仅显示等待状态';
+    } else {
+        // 仅显示等待状态 - 闭眼
+        eyeIcon.className = 'fas fa-eye-slash';
+        toggleBtn.title = '当前仅显示等待状态，点击显示全部状态';
+    }
+    
     // 全局快捷键监听
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key.toLowerCase() === 'i') {

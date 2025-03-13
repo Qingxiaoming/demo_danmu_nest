@@ -220,13 +220,31 @@ function handleTabNavigation(item, e) {
     }
 }
 
+// 切换显示状态并更新眼睛图标
+function toggleVisibility() {
+    window.danmu.showNonWaiting = !window.danmu.showNonWaiting; // 切换显示/隐藏状态
+    
+    // 更新眼睛图标
+    const toggleBtn = document.getElementById('toggle-btn');
+    const eyeIcon = toggleBtn.querySelector('i');
+    
+    if (window.danmu.showNonWaiting) {
+        // 显示所有状态 - 睁眼
+        eyeIcon.className = 'fas fa-eye';
+        toggleBtn.title = '当前显示全部状态，点击仅显示等待状态';
+    } else {
+        // 仅显示等待状态 - 闭眼
+        eyeIcon.className = 'fas fa-eye-slash';
+        toggleBtn.title = '当前仅显示等待状态，点击显示全部状态';
+    }
+    
+    renderDanmu(); // 重新渲染弹幕
+}
+
 // 初始化弹幕模块
 function initDanmu() {
     // 切换列表显示函数
-    document.getElementById('toggle-btn').onclick = () => {
-        window.danmu.showNonWaiting = !window.danmu.showNonWaiting; // 切换显示/隐藏状态
-        renderDanmu(); // 重新渲染弹幕
-    };
+    document.getElementById('toggle-btn').onclick = toggleVisibility;
     
     // 添加点击列表外失焦的逻辑
     document.addEventListener('click', (e) => {
@@ -246,5 +264,6 @@ window.danmu = {
     renderDanmu,
     handleDanmuItemSelection,
     handleTabNavigation,
+    toggleVisibility,
     initDanmu
 }; 
