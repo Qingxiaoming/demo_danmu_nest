@@ -3,19 +3,22 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { User } from './model/user.model';
 import { Danmu } from './model/danmu.model';
 import { ExceptionCatchFilter } from './core/filter/exception';
-import { UserModule } from './modules/user/user.module';
 import { DanmuModule } from './modules/danmu/danmu.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
+import { LoggerModule } from './core/modules/logger.module';
+import { APP_FILTER } from '@nestjs/core';
+import { WsExceptionFilter } from './core/filters/ws-exception.filter';
+import { EnhancedLoggerService } from './core/services/logger.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    LoggerModule,
     ScheduleModule.forRoot(),
     SequelizeModule.forRoot({
       dialect: 'mysql',
@@ -24,15 +27,27 @@ import { ConfigModule } from '@nestjs/config';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      models: [User, Danmu],
+      models: [Danmu],
       autoLoadModels: true,
       synchronize: true,
       logging: false,
     }),
-    UserModule,
     DanmuModule
   ],
   controllers: [AppController],
-  providers: [AppService, ExceptionCatchFilter]
+  providers: [
+    AppService,
+    EnhancedLoggerService,
+    // 注册HTTP异常过滤器
+    {
+      provide: APP_FILTER,
+      useClass: ExceptionCatchFilter,
+    },
+    // 注册WebSocket异常过滤器
+    {
+      provide: APP_FILTER,
+      useClass: WsExceptionFilter,
+    }
+  ]
 })
 export class AppModule {}

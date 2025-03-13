@@ -1,8 +1,3 @@
-export enum PLATFORM {
-  platform = 'platform',
-  h5 = 'h5',
-}
-
 export enum CoatingType {
   POWDER = 'powder', // 粉末涂装
   ELECTROPHORESIS = 'electrophoresis', // 电泳涂装

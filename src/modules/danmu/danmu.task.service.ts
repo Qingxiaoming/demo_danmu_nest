@@ -2,18 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { BilibiliService } from './bilibili.service';
 import { DanmuService } from './danmu.service';
+import { EnhancedLoggerService } from '../../core/services/logger.service';
 
 @Injectable()
 export class DanmuTaskService {
-  private readonly logger = new Logger(DanmuTaskService.name);
+  private readonly logger: EnhancedLoggerService;
   private readonly roomId = 23415751; // B站直播间ID，与原始b.js保持一致
   private readonly printedDanmuIds = new Set(); // 存储已处理的弹幕ID，避免重复处理
   private readonly filterKeyword = "花"; // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
   
   constructor(
     private readonly bilibiliService: BilibiliService,
-    private readonly danmuService: DanmuService
-  ) {}
+    private readonly danmuService: DanmuService,
+    loggerService: EnhancedLoggerService
+  ) {
+    this.logger = loggerService.setContext('DanmuTaskService');
+  }
   
   /**
    * 每30秒从B站获取一次弹幕数据
@@ -28,11 +32,19 @@ export class DanmuTaskService {
           
           // 避免重复处理同一条弹幕
           if (!this.printedDanmuIds.has(danmuId)) {
-            // 打印弹幕内容到终端，参照b.js的实现
-            console.log(`nickname: ${danmu.nickname}, time: ${new Date().toLocaleString()}, text: ${danmu.text}`);
+            // 记录弹幕内容
+            this.logger.log('收到B站弹幕', { 
+              nickname: danmu.nickname, 
+              time: new Date().toLocaleString(), 
+              text: danmu.text 
+            });
+            
             // 检查弹幕内容是否包含指定关键词
             if (danmu.text.includes(this.filterKeyword)) {
-              this.logger.log(`弹幕包含关键词"${this.filterKeyword}"，保存到数据库`);
+              this.logger.log(`弹幕包含关键词"${this.filterKeyword}"，保存到数据库`, {
+                nickname: danmu.nickname,
+                text: danmu.text
+              });
               
               await this.danmuService.createDanmu({
                 uid: danmu.uid.toString(), // 直接使用B站弹幕的原始uid
@@ -49,10 +61,13 @@ export class DanmuTaskService {
           }
         }
       } else {
-        this.logger.log('没有新的B站弹幕数据');
+        this.logger.debug('没有新的B站弹幕数据');
       }
     } catch (error) {
-      this.logger.error('获取并保存B站弹幕时发生错误:', error);
+      this.logger.error('获取并保存B站弹幕时发生错误', { 
+        error: error.message,
+        stack: error.stack
+      });
     }
   }
 }

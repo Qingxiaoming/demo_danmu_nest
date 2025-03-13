@@ -3,37 +3,65 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Danmu } from '../../model/danmu.model';
 import * as bcrypt from 'bcrypt';
 import { log } from 'console';
+import E, { wrapAsync } from '../../common/error';
+import { EnhancedLoggerService } from '../../core/services/logger.service';
 
 @Injectable()
 export class DanmuService {
-  private readonly logger = new Logger(DanmuService.name);
+  private readonly logger: EnhancedLoggerService;
   
-  constructor(@InjectModel(Danmu) private readonly danmuModel: typeof Danmu) {}
+  constructor(
+    @InjectModel(Danmu)
+    private readonly danmuModel: typeof Danmu,
+    loggerService: EnhancedLoggerService
+  ) {
+    this.logger = loggerService.setContext('DanmuService');
+  }
 
   async updateStatus(uid: string, status: string) {
     try {
-      const result = await this.danmuModel.update({ status }, { where: { uid } });
-      console.log(`${status === 'deleted' ? '删除' : '标记为已完成'}成功:`, result);
-      return { success: `${status === 'deleted' ? '删除' : '标记为已完成'}成功` };
-    } catch (err) {
-      console.error('数据库更新失败:', err);
-      throw { error: `${status === 'deleted' ? '删除' : '标记为已完成'}失败` };
+      const danmu = await this.danmuModel.findOne({
+        where: { uid }
+      });
+      
+      if (!danmu) {
+        E.DANMU_NOT_FOUND.throw(`未找到ID为${uid}的弹幕`);
+      }
+      
+      await danmu.update({ status });
+      
+      return {
+        success: true,
+        data: {
+          uid,
+          status
+        }
+      };
+    } catch (error) {
+      this.logger.error('更新弹幕状态失败', { uid, status, error });
+      throw error;
     }
   }
 
-  async updateText(uid: string, text: string) {
-    if (!text) {
-      throw { error: '编辑失败：缺少文本内容' };
+  updateText = wrapAsync(async (uid: string, text: string) => {
+    const danmu = await this.danmuModel.findOne({
+      where: { uid }
+    });
+    
+    if (!danmu) {
+      E.DANMU_NOT_FOUND.throw(`未找到ID为${uid}的弹幕`);
     }
-    try {
-      const result = await this.danmuModel.update({ text }, { where: { uid } });
-      console.log('编辑成功:', result);
-      return { success: '编辑成功' };
-    } catch (err) {
-      console.error('数据库更新失败:', err);
-      throw { error: '编辑失败' };
-    }
-  }
+    
+    await danmu.update({ text });
+    
+    return {
+      success: true,
+      data: {
+        uid,
+        text
+      }
+    };
+  }, E.DANMU_UPDATE_FAILED);
 
 /*
    * @param uid 用户ID
@@ -48,13 +76,14 @@ export class DanmuService {
       if (!result) {
         throw new Error('未找到账号信息');
       }
-      console.log('查询到的账号密码:', result.account, result.password);
+      
+      this.logger.debug('查询账号密码信息', { uid, hasAccount: !!result.account });
+      
       // 用户账号密码以明文存储，直接返回
       const returnData = { action: 'get_acps', data: {account: result.account, password: result.password}, uid };
-      console.log('发送给前端的账号密码数据:', returnData);
       return returnData;
     } catch (err) {
-      console.error('查询账号密码失败:', err);
+      this.logger.error('查询账号密码失败', { uid, error: err.message });
       return { action: 'get_acps', data: 1 };
     }
   }
@@ -63,9 +92,10 @@ export class DanmuService {
     try {
       // 用户账号密码以明文存储，不再使用bcrypt加密
       await this.danmuModel.update({ account, password }, { where: { uid } });
+      this.logger.log('更新账号密码成功', { uid });
       return { action: 'update_acps', success: true };
     } catch (err) {
-      console.error('更新账号密码失败:', err);
+      this.logger.error('更新账号密码失败', { uid, error: err.message });
       return { action: 'update_acps', success: false };
     }
   }
@@ -76,74 +106,68 @@ export class DanmuService {
    * @param text 弹幕内容
    * @returns 添加或更新结果
    */
-  async addDanmu(nickname: string, text: string): Promise<any> {
+  async addDanmu(nickname: string, text: string) {
     try {
-      // 查找是否已存在该昵称的记录
-      const existingDanmu = await this.danmuModel.findOne({
-        where: { nickname }
+      if (!nickname || !text) {
+        E.INVALID_PARAMS.throw('昵称和内容不能为空');
+      }
+      
+      // 检查内容长度
+      if (text.length > 200) {
+        E.DANMU_TEXT_TOO_LONG.throw('弹幕内容不能超过200个字符');
+      }
+      
+      const danmu = await this.danmuModel.create({
+        uid: Date.now().toString(),
+        nickname,
+        text,
+        status: 'waiting',
+        createtime: new Date().toISOString(),
+        account: '',
+        password: ''
       });
       
-      if (existingDanmu) {
-        // 如果已存在，更新text、状态和创建时间
-        this.logger.log(`找到已存在的昵称: ${nickname}，更新记录`);
-        await this.danmuModel.update(
-          { 
-            text, 
-            status: 'waiting',
-            createtime: new Date().toISOString() 
-          }, 
-          { where: { nickname } }
-        );
-        return { success: true, message: '弹幕更新成功' };
-      } else {
-        // 如果不存在，创建新记录
-        // 查找最大uid
-        const maxUidRecord = await this.danmuModel.findOne({
-          order: [['uid', 'DESC']]
-        });
-        
-        // 计算新uid (最大uid + 1)
-        const maxUid = maxUidRecord ? parseInt(maxUidRecord.uid) : 0;
-        const newUid = (maxUid + 1).toString();
-        
-        // 创建新记录
-        await this.danmuModel.create({
-          uid: newUid,
-          nickname,
-          text,
-          account: '',
-          password: '',
-          status: 'waiting',
-          createtime: new Date().toISOString()
-        });
-        
-        this.logger.log(`创建新弹幕记录，uid: ${newUid}, nickname: ${nickname}`);
-        return { success: true, message: '弹幕添加成功' };
-      }
-    } catch (err) {
-      this.logger.error('添加或更新弹幕失败:', err);
-      throw { message: '添加弹幕失败: ' + err.message };
+      return {
+        success: true,
+        data: danmu
+      };
+    } catch (error) {
+      this.logger.error('添加弹幕失败', { nickname, error });
+      throw error;
     }
   }
 
+  /**
+   * 获取所有弹幕
+   * @returns 所有弹幕数据
+   */
   async getAllDanmu() {
     try {
-      
-      const results = await this.danmuModel.findAll({
-        attributes: ['uid', 'nickname', 'text', 'createtime', 'status']
+      const danmus = await this.danmuModel.findAll({
+        order: [['createtime', 'DESC']]
       });
-      const data = {
-        uid: results.map(item => item.uid),
-        nickname: results.map(item => item.nickname),
-        text: results.map(item => item.text),
-        createtime: results.map(item => item.createtime),
-        status: results.map(item => item.status)
+      
+      // 转换为前端需要的格式
+      const result = {
+        uid: [],
+        nickname: [],
+        text: [],
+        status: [],
+        createtime: []
       };
-      //console.log('发送webhook消息:', results);
-      return data;
-    } catch (err) {
-      console.error('从数据库获取弹幕数据失败:', err);
-      throw err;
+      
+      danmus.forEach(danmu => {
+        result.uid.push(danmu.uid);
+        result.nickname.push(danmu.nickname);
+        result.text.push(danmu.text);
+        result.status.push(danmu.status);
+        result.createtime.push(danmu.createtime);
+      });
+      
+      return result;
+    } catch (error) {
+      this.logger.error('获取所有弹幕失败', { error });
+      throw E.SQL_QUERY_FAILED.create('获取弹幕数据失败', { originalError: error });
     }
   }
 
@@ -179,7 +203,7 @@ export class DanmuService {
       return danmu;
     } catch (err) {
       this.logger.error('创建或更新弹幕失败:', err);
-      throw { error: '创建弹幕失败' };
+      throw E.DANMU_CREATE_FAILED.create('创建或更新弹幕失败', { originalError: err });
     }
   }
 

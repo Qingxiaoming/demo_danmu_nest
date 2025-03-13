@@ -17,7 +17,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "logs": "node scripts/view-logs.js",
+    "logs:app": "node scripts/view-logs.js application-$(date +%Y-%m-%d).log",
+    "logs:error": "node scripts/view-logs.js error-$(date +%Y-%m-%d).log",
+    "logs:security": "node scripts/view-logs.js security.log",
+    "logs:filter": "node scripts/view-logs.js --filter"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.10",
@@ -49,6 +54,8 @@
     "sequelize": "^6.37.5",
     "sequelize-typescript": "^2.1.6",
     "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.18.1"
   },
   "devDependencies": {

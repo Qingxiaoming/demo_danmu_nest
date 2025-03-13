@@ -72,6 +72,67 @@
             // 初始化按钮显示状态
             updateUIByRole();
             renderDanmu();
+            
+            // 检查是否有保存的令牌
+            const savedToken = localStorage.getItem('auth_token');
+            if (savedToken) {
+                // 使用保存的令牌初始化连接
+                socket.auth = { token: savedToken };
+                console.log('使用保存的令牌初始化连接');
+            }
+            
+            // 处理连接错误
+            socket.on('connect_error', (error) => {
+                console.error('连接错误:', error);
+                // 在UI上显示连接错误
+                showConnectionStatus(false, error.message);
+            });
+            
+            // 处理断开连接
+            socket.on('disconnect', (reason) => {
+                console.log('断开连接:', reason);
+                showConnectionStatus(false, reason);
+                
+                // 如果是服务器断开连接，尝试重新连接
+                if (reason === 'io server disconnect') {
+                    // 服务器断开连接，需要手动重连
+                    setTimeout(() => {
+                        console.log('尝试重新连接...');
+                        socket.connect();
+                    }, 3000);
+                }
+                // 其他断开原因会自动重连
+            });
+            
+            // 处理重新连接
+            socket.on('reconnect', (attemptNumber) => {
+                console.log('重新连接成功，尝试次数:', attemptNumber);
+                showConnectionStatus(true);
+            });
+            
+            // 处理重新连接尝试
+            socket.on('reconnect_attempt', (attemptNumber) => {
+                console.log('尝试重新连接，次数:', attemptNumber);
+                showConnectionStatus(false, `尝试重新连接 (${attemptNumber})`);
+            });
+            
+            // 处理重新连接错误
+            socket.on('reconnect_error', (error) => {
+                console.error('重新连接错误:', error);
+                showConnectionStatus(false, `重新连接错误: ${error.message}`);
+            });
+            
+            // 处理重新连接失败
+            socket.on('reconnect_failed', () => {
+                console.error('重新连接失败');
+                showConnectionStatus(false, '重新连接失败，请刷新页面');
+            });
+            
+            // 连接状态显示
+            socket.on('connect', () => {
+                console.log('连接成功');
+                showConnectionStatus(true);
+            });
         });
 
         // 根据用户角色更新UI
@@ -84,48 +145,39 @@
             }
         }
 
-        socket.on('connect', () => {
-            console.log('连接到 Socket.IO 服务器');
-            serverErrorElement.style.display = 'none'; // 使用全局变量
-            isConnected = true; // 设置连接状态为已连接
-        });
-
-        socket.on('connect_error', (error) => {
-            console.log('连接到 Socket.IO 服务器失败', error);
-            if (error.message === 'Authentication failed') {
-                // 清除无效的认证信息
-                localStorage.removeItem('auth_token');
-                userRole = 'guest';
-                updateUIByRole();
+        // 显示连接状态的函数
+        function showConnectionStatus(connected, message = '') {
+            // 检查状态指示器是否存在，不存在则创建
+            let statusIndicator = document.getElementById('connection-status');
+            if (!statusIndicator) {
+                statusIndicator = document.createElement('div');
+                statusIndicator.id = 'connection-status';
+                statusIndicator.style.position = 'fixed';
+                statusIndicator.style.bottom = '10px';
+                statusIndicator.style.right = '10px';
+                statusIndicator.style.padding = '5px 10px';
+                statusIndicator.style.borderRadius = '5px';
+                statusIndicator.style.fontSize = '12px';
+                statusIndicator.style.zIndex = '1000';
+                document.body.appendChild(statusIndicator);
             }
-            // 强制显示错误消息
-            serverErrorElement.style.display = 'block'; 
-            serverErrorElement.style.opacity = '1';
-            isConnected = false; // 设置连接状态为未连接
-        });
-
-        socket.on('disconnect', () => {
-            console.log('与 Socket.IO 服务器断开连接');
-            // 强制显示错误消息
-            serverErrorElement.style.display = 'block';
-            serverErrorElement.style.opacity = '1';
-            isConnected = false; // 设置连接状态为未连接
-        });
-
-        // 添加会话过期处理
-        socket.on('session_expired', () => {
-            localStorage.removeItem('auth_token');
-            userRole = 'guest';
-            updateUIByRole();
-            renderDanmu();
             
-            const errorElement = document.getElementById('password-error');
-            errorElement.textContent = '会话已过期，请重新登录';
-            errorElement.classList.add('show');
-            setTimeout(() => {
-                errorElement.classList.remove('show');
-            }, 3000);
-        });
+            if (connected) {
+                statusIndicator.style.backgroundColor = '#5cb85c';
+                statusIndicator.style.color = 'white';
+                statusIndicator.textContent = '已连接';
+                
+                // 连接成功后3秒隐藏
+                setTimeout(() => {
+                    statusIndicator.style.opacity = '0.5';
+                }, 3000);
+            } else {
+                statusIndicator.style.backgroundColor = '#d9534f';
+                statusIndicator.style.color = 'white';
+                statusIndicator.style.opacity = '1';
+                statusIndicator.textContent = message ? `未连接: ${message}` : '未连接';
+            }
+        }
 
         // 显示认证错误提示
         function showAuthError(message) {
@@ -253,7 +305,15 @@
                     
                     // 更新socket连接的认证信息
                     socket.auth = { token: response.token };
-                    socket.disconnect().connect(); // 断开后重新连接以应用新的token
+                    
+                    // 断开并重新连接以应用新的认证信息
+                    if (socket.connected) {
+                        socket.disconnect().connect();
+                        console.log('断开并重新连接以应用新的认证信息');
+                    } else {
+                        socket.connect();
+                        console.log('连接Socket以应用认证信息');
+                    }
                     
                     userRole = 'owner';
                     updateUIByRole();
@@ -272,17 +332,13 @@
                         errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
                     }, 3000);
                 } else {
-                    console.log('验证失败:', response.message);
+                    // 处理验证失败
                     const errorElement = document.getElementById('password-error');
-                    errorElement.textContent = response.message || '密码错误';
+                    errorElement.textContent = response.message || '验证失败';
                     errorElement.classList.add('show');
                     setTimeout(() => {
                         errorElement.classList.remove('show');
                     }, 3000);
-                    
-                    // 更新登录状态
-                    loginStatus.textContent = '未登录: 访客模式';
-                    loginStatus.style.color = '#f0ad4e';
                 }
             });
         };
