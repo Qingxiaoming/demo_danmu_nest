@@ -31,6 +31,7 @@ function updateUIByRole() {
             // 设置按钮使用visibility属性保持占位
             settingsBtn.style.visibility = 'visible';
         } else {
+            // 在闭眼状态下隐藏登出按钮和设置按钮
             logoutBtn.style.display = 'none';
             settingsBtn.style.visibility = 'hidden';
         }

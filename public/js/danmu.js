@@ -292,6 +292,9 @@ const danmuModule = {
                 } else if (element.id === 'settings-btn') {
                     // 设置按钮在闭眼状态下隐藏，使用visibility属性保持占位
                     element.style.visibility = 'hidden';
+                } else if (element.id === 'logout-btn') {
+                    // 退出按钮在闭眼状态下隐藏
+                    element.style.display = 'none';
                 } else {
                     // 其他认证元素隐藏，使用display属性
                     element.style.display = 'none';
@@ -332,6 +335,9 @@ const danmuModule = {
             } else if (element.id === 'settings-btn') {
                 // 设置按钮使用visibility属性保持占位
                 element.style.visibility = 'hidden';
+            } else if (element.id === 'logout-btn') {
+                // 退出按钮隐藏
+                element.style.display = 'none';
             } else {
                 // 其他认证元素隐藏，使用display属性
                 element.style.display = 'none';

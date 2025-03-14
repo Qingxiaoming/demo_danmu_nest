@@ -17,12 +17,12 @@
             <form id="login-form" onsubmit="return false;">
                 <input type="password" id="login-password" name="password" placeholder="输入密码" autocomplete="current-password">
                 <button type="submit" id="login-btn">Start</button>
+                <button id="logout-btn" title="退出登录" class="auth-element" style="display: none; margin-left: 10px; background-color: #d9534f; color: white; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer;">退出</button>
             </form>
         </div>
         <div class="toggle-container">
             <div id="password-error" class="error-message auth-element"></div>
             <div id="login-status" class="status-message auth-element"></div>
-            <button id="logout-btn" title="退出登录" class="auth-element" style="display: none; margin-left: 10px; background-color: #d9534f; color: white; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer;">退出</button>
         </div>
     </div>
     <div id="danmu-container"></div>
