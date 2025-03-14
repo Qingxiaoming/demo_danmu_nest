@@ -115,6 +115,29 @@ function saveShortcutSettings(settings) {
     localStorage.setItem('shortcutSettings', JSON.stringify(settings));
 }
 
+// 初始化默认快捷键设置
+function initDefaultShortcuts() {
+    const currentSettings = loadShortcutSettings();
+    
+    // 如果没有设置或设置不完整，则设置默认值
+    const defaultSettings = {
+        delete: currentSettings.delete || 'D',
+        complete: currentSettings.complete || 'C',
+        edit: currentSettings.edit || 'E',
+        acps: currentSettings.acps || 'A',
+        add: currentSettings.add || 'Ctrl+A'
+    };
+    
+    // 只有在设置不完整时才保存默认设置
+    if (!currentSettings.delete || !currentSettings.complete || 
+        !currentSettings.edit || !currentSettings.acps || !currentSettings.add) {
+        saveShortcutSettings(defaultSettings);
+        console.log('已初始化默认快捷键设置:', defaultSettings);
+    }
+    
+    return defaultSettings;
+}
+
 // 导出工具函数
 window.utils = {
     showConnectionStatus,
@@ -123,5 +146,6 @@ window.utils = {
     checkAdminPermission,
     initDraggableGif,
     loadShortcutSettings,
-    saveShortcutSettings
+    saveShortcutSettings,
+    initDefaultShortcuts
 }; 

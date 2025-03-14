@@ -42,6 +42,29 @@ const danmuModule = {
             }
         }
         
+        // 通用的弹幕操作处理函数
+        const handleDanmuAction = (action, uid, text) => {
+            switch(action) {
+                case 'delete':
+                    window.socket.emit('delete', { index: uid });
+                    break;
+                case 'completed':
+                    window.socket.emit('completed', { index: uid });
+                    break;
+                case 'edit':
+                    const newText = prompt('请输入新的弹幕内容:', text);
+                    if (newText) {
+                        window.socket.emit('edit', { index: uid, text: newText });
+                    }
+                    break;
+                case 'get_acps':
+                    window.socket.emit('get_acps', { index: uid });
+                    break;
+                default:
+                    break;
+            }
+        };
+        
         danmuContainer.innerHTML = ''; // 清空现有内容
         data.uid.forEach((uid, index) => {
             if (!this.showNonWaiting && data.status[index] !== 'waiting') {
@@ -64,23 +87,29 @@ const danmuModule = {
             item.addEventListener('keydown', (e) => {
                 if (e.key === 'Tab') {
                     this.handleTabNavigation(item, e);
-                } else if (window.userRole === 'owner' && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
-                    switch(e.key) {
-                        case '1':
-                            window.socket.emit('delete', { index: uid });
-                            break;
-                        case '2':
-                            window.socket.emit('completed', { index: uid });
-                            break;
-                        case '3':
-                            const newText = prompt('请输入新的弹幕内容:', data.text[index]);
-                            if (newText) {
-                                window.socket.emit('edit', { index: uid, text: newText });
-                            }
-                            break;
-                        case '4':
-                            window.socket.emit('get_acps', { index: uid });
-                            break;
+                } else if (window.userRole === 'owner') {
+                    // 获取快捷键设置
+                    const shortcutSettings = window.utils.loadShortcutSettings();
+                    
+                    // 创建当前按下的快捷键组合字符串
+                    const pressedKeys = [];
+                    if (e.ctrlKey) pressedKeys.push('Ctrl');
+                    if (e.shiftKey) pressedKeys.push('Shift');
+                    if (e.altKey) pressedKeys.push('Alt');
+                    if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') {
+                        pressedKeys.push(e.key.toUpperCase());
+                    }
+                    const pressedKeyString = pressedKeys.join('+');
+                    
+                    // 检查是否匹配配置的快捷键
+                    if (shortcutSettings.delete && pressedKeyString === shortcutSettings.delete) {
+                        handleDanmuAction('delete', uid);
+                    } else if (shortcutSettings.complete && pressedKeyString === shortcutSettings.complete) {
+                        handleDanmuAction('completed', uid);
+                    } else if (shortcutSettings.edit && pressedKeyString === shortcutSettings.edit) {
+                        handleDanmuAction('edit', uid, data.text[index]);
+                    } else if (shortcutSettings.acps && pressedKeyString === shortcutSettings.acps) {
+                        handleDanmuAction('get_acps', uid);
                     }
                 }
             });
@@ -121,41 +150,22 @@ const danmuModule = {
                 // 删除按钮
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = '删除';
-                deleteBtn.onclick = () => {
-                    window.socket.emit('delete', {
-                        index: uid 
-                    });
-                };
+                deleteBtn.onclick = () => handleDanmuAction('delete', uid);
 
                 // 编辑按钮
                 const editBtn = document.createElement('button');
                 editBtn.textContent = '编辑';
-                editBtn.onclick = () => {
-                    const newText = prompt('请输入新的弹幕内容:', data.text[index]);
-                    if (newText) {
-                        window.socket.emit('edit', {
-                            index: uid, 
-                            text: newText
-                        });
-                    }
-                };
+                editBtn.onclick = () => handleDanmuAction('edit', uid, data.text[index]);
 
                 // 完成按钮
                 const completedBtn = document.createElement('button');
                 completedBtn.textContent = '完成';
-                completedBtn.onclick = () => {
-                    window.socket.emit('completed', {
-                        index: uid 
-                    });
-                };
+                completedBtn.onclick = () => handleDanmuAction('completed', uid);
+                
                 // 账密按钮
                 const ac_ps_Btn = document.createElement('button');
                 ac_ps_Btn.textContent = '账密';
-                ac_ps_Btn.onclick = () => {
-                    window.socket.emit('get_acps', {
-                        index: uid
-                    });
-                };
+                ac_ps_Btn.onclick = () => handleDanmuAction('get_acps', uid);
                 
                 actions.appendChild(deleteBtn);
                 actions.appendChild(completedBtn);
@@ -304,6 +314,9 @@ const danmuModule = {
     initDanmu() {
         // 初始化显示状态
         this.showNonWaiting = false;
+        
+        // 初始化默认快捷键设置
+        window.utils.initDefaultShortcuts();
         
         // 初始化时隐藏认证相关元素，但保留添加弹幕按钮
         const authContainer = document.querySelector('.auth-container');
