@@ -175,9 +175,10 @@ body {
 
 .add-danmu-btn-container {
     position: fixed;
-    bottom: 20px;
+    bottom: 60px;
     right: 20px;
     display: flex;
+    flex-direction: column;
     gap: 10px;
 }
 
@@ -195,6 +196,14 @@ body {
     justify-content: center;
     transition: all 0.3s ease;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 当按钮隐藏时，保持位置但不可见 */
+.add-danmu-btn-container button[style*="visibility: hidden"] {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .add-danmu-btn-container button:hover {

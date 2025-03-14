@@ -259,28 +259,31 @@ const danmuModule = {
             if (this.showNonWaiting) {
                 // 在睁眼状态下，根据用户角色显示元素
                 if (element.id === 'logout-btn') {
-                    // 退出按钮只在已认证状态下显示
+                    // 退出按钮只在已认证状态下显示，使用display属性
                     element.style.display = window.userRole === 'owner' ? 'inline-block' : 'none';
                 } else if (element.id === 'add-danmu-btn') {
-                    // 添加弹幕按钮在登录状态下始终显示
-                    element.style.display = window.userRole === 'owner' ? 'flex' : 'none';
+                    // 添加弹幕按钮在登录状态下始终显示，使用visibility属性保持占位
+                    element.style.visibility = window.userRole === 'owner' ? 'visible' : 'hidden';
                 } else if (element.id === 'settings-btn') {
-                    // 设置按钮只在睁眼状态下显示
-                    element.style.display = window.userRole === 'owner' ? 'flex' : 'none';
+                    // 设置按钮只在睁眼状态下显示，使用visibility属性保持占位
+                    element.style.visibility = window.userRole === 'owner' ? 'visible' : 'hidden';
                 } else if (element.classList.contains('login-container')) {
-                    // 登录容器显示
+                    // 登录容器显示，使用display属性
                     element.style.display = 'block';
                 } else {
-                    // 其他认证元素正常显示
+                    // 其他认证元素正常显示，使用display属性
                     element.style.display = 'block';
                 }
             } else {
                 // 在闭眼状态下隐藏所有认证元素，但保留添加弹幕按钮
                 if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
-                    // 如果是添加弹幕按钮且用户已登录，保持显示
-                    element.style.display = 'flex';
+                    // 如果是添加弹幕按钮且用户已登录，保持显示，使用visibility属性保持占位
+                    element.style.visibility = 'visible';
+                } else if (element.id === 'settings-btn') {
+                    // 设置按钮使用visibility属性保持占位
+                    element.style.visibility = 'hidden';
                 } else {
-                    // 其他认证元素隐藏
+                    // 其他认证元素隐藏，使用display属性
                     element.style.display = 'none';
                 }
                 console.log('处理元素:', element.id || element.className);
@@ -311,10 +314,13 @@ const danmuModule = {
         const authElements = document.querySelectorAll('.auth-element');
         authElements.forEach(element => {
             if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
-                // 如果是添加弹幕按钮且用户已登录，保持显示
-                element.style.display = 'flex';
+                // 如果是添加弹幕按钮且用户已登录，保持显示，使用visibility属性保持占位
+                element.style.visibility = 'visible';
+            } else if (element.id === 'settings-btn') {
+                // 设置按钮使用visibility属性保持占位
+                element.style.visibility = 'hidden';
             } else {
-                // 其他认证元素隐藏
+                // 其他认证元素隐藏，使用display属性
                 element.style.display = 'none';
             }
         });

@@ -19,21 +19,23 @@ function updateUIByRole() {
         addDanmuBtnContainer.style.display = 'flex';
         
         // 添加弹幕按钮在登录状态下始终显示，不管是睁眼还是闭眼
-        addDanmuBtn.style.display = 'flex';
+        addDanmuBtn.style.visibility = 'visible';
         
         // 只在睁眼状态下显示登出按钮和设置按钮
         if (window.danmu && window.danmu.showNonWaiting) {
+            // 登出按钮使用display属性
             logoutBtn.style.display = 'inline-block';
-            settingsBtn.style.display = 'flex';
+            // 设置按钮使用visibility属性保持占位
+            settingsBtn.style.visibility = 'visible';
         } else {
             logoutBtn.style.display = 'none';
-            settingsBtn.style.display = 'none';
+            settingsBtn.style.visibility = 'hidden';
         }
     } else {
         // 非管理员用户只显示toggle按钮
         addDanmuBtnContainer.style.display = 'flex';
-        addDanmuBtn.style.display = 'none';
-        settingsBtn.style.display = 'none';
+        addDanmuBtn.style.visibility = 'hidden';
+        settingsBtn.style.visibility = 'hidden';
         logoutBtn.style.display = 'none';
     }
     
