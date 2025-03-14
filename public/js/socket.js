@@ -108,6 +108,12 @@ function handleSocketEvent(eventName, data) {
             break;
             
         case 'add_danmu':
+            console.log('弹幕操作结果:', data);
+            if (data && data.success) {
+                console.log(data.isUpdate ? '弹幕更新成功' : '弹幕添加成功');
+            } else if (data) {
+                console.error('弹幕操作失败:', data.message);
+            }
             break;
             
         case 'play_song':
@@ -121,6 +127,49 @@ function handleSocketEvent(eventName, data) {
             console.log(`未处理的事件: ${eventName}`, data);
             break;
     }
+}
+
+// 处理服务器事件
+function handleServerEvents(socket) {
+    // 监听服务器事件
+    const eventHandlers = {
+        'update': (data) => {
+            // 更新弹幕列表
+            window.danmu.currentDanmuData = data;
+            window.danmu.renderDanmu(data);
+        },
+        'get_acps': (data) => {
+            if (data.success) {
+                window.ui.showAccountPasswordDialog(data, data.uid);
+            } else {
+                console.error('获取账号密码失败:', data.message);
+            }
+        },
+        'update_acps': (data) => {
+            if (data.success) {
+                console.log('账号密码更新成功');
+            } else {
+                console.error('账号密码更新失败:', data.message);
+            }
+        },
+        'add_danmu': (data) => {
+            if (data.success) {
+                console.log(data.isUpdate ? '弹幕更新成功' : '弹幕添加成功');
+            } else {
+                console.error('弹幕操作失败:', data.message);
+            }
+        },
+        'play_song': (data) => {
+            if (data.success && data.song) {
+                window.player.playSong(data.song);
+            } else {
+                console.error('播放歌曲失败:', data.message);
+            }
+        },
+        'verify_password': (data) => {
+            // 这个事件在auth.js中处理
+        }
+    };
 }
 
 // 导出Socket模块

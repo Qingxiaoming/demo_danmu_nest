@@ -152,22 +152,42 @@ export class DanmuService {
         }
       }
       
-      const danmu = await this.danmuModel.create({
-        uid: Date.now().toString(),
-        nickname,
-        text,
-        status: 'waiting',
-        createtime: new Date().toISOString(),
-        account: '',
-        password: ''
+      // 检查昵称是否已存在
+      const existingDanmu = await this.danmuModel.findOne({
+        where: { nickname }
       });
       
-      this.logger.log(`弹幕创建成功: ${nickname}, ID: ${danmu.uid}`);
+      let danmu;
+      
+      if (existingDanmu) {
+        // 如果昵称已存在，更新内容和状态
+        existingDanmu.text = text;
+        existingDanmu.status = 'waiting'; // 重置为等待状态
+        existingDanmu.createtime = new Date().toISOString(); // 更新时间
+        await existingDanmu.save();
+        
+        danmu = existingDanmu;
+        this.logger.log(`弹幕更新成功: ${nickname}, ID: ${danmu.uid}`);
+      } else {
+        // 如果昵称不存在，创建新弹幕
+        danmu = await this.danmuModel.create({
+          uid: Date.now().toString(),
+          nickname,
+          text,
+          status: 'waiting',
+          createtime: new Date().toISOString(),
+          account: '',
+          password: ''
+        });
+        
+        this.logger.log(`弹幕创建成功: ${nickname}, ID: ${danmu.uid}`);
+      }
       
       return {
         success: true,
         data: danmu,
-        songInfo
+        songInfo,
+        isUpdate: !!existingDanmu
       };
     } catch (error) {
       this.logger.error('添加弹幕失败', { nickname, errorMessage: error.message, errorStack: error.stack });

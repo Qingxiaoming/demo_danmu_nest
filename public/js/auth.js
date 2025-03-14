@@ -18,14 +18,15 @@ function updateUIByRole() {
         // 确保按钮容器始终可见
         addDanmuBtnContainer.style.display = 'flex';
         
-        // 只在睁眼状态下显示管理员按钮
+        // 添加弹幕按钮在登录状态下始终显示，不管是睁眼还是闭眼
+        addDanmuBtn.style.display = 'flex';
+        
+        // 只在睁眼状态下显示登出按钮和设置按钮
         if (window.danmu && window.danmu.showNonWaiting) {
             logoutBtn.style.display = 'inline-block';
-            addDanmuBtn.style.display = 'flex';
             settingsBtn.style.display = 'flex';
         } else {
             logoutBtn.style.display = 'none';
-            addDanmuBtn.style.display = 'none';
             settingsBtn.style.display = 'none';
         }
     } else {
@@ -36,14 +37,10 @@ function updateUIByRole() {
         logoutBtn.style.display = 'none';
     }
     
-    // 更新登录状态文本
+    // 清空登录状态文本
     const loginStatus = document.getElementById('login-status');
-    if (loginStatus && window.danmu && window.danmu.showNonWaiting) {
-        if (window.userRole === 'owner') {
-            window.utils.updateLoginStatus('已登录', '#5cb85c');
-        } else {
-            window.utils.updateLoginStatus('未登录', '#ff5722');
-        }
+    if (loginStatus) {
+        loginStatus.textContent = '';
     }
 }
 
@@ -64,16 +61,6 @@ function logout() {
         window.socket.disconnect().connect();
     }
     
-    // 显示登出成功消息
-    const errorElement = document.getElementById('password-error');
-    errorElement.textContent = '已成功退出登录';
-    errorElement.style.color = '#5bc0de';
-    errorElement.classList.add('show');
-    setTimeout(() => {
-        errorElement.classList.remove('show');
-        errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
-    }, 3000);
-    
     console.log('用户已登出，认证信息已清除');
 }
 
@@ -82,19 +69,8 @@ function initLoginButton() {
     document.getElementById('login-btn').onclick = () => {
         const plainPassword = document.getElementById('login-password').value;
         if (!plainPassword) {
-            const errorElement = document.getElementById('password-error');
-            errorElement.textContent = '密码为空';
-            errorElement.classList.add('show');
-            setTimeout(() => {
-                errorElement.classList.remove('show');
-            }, 3000);
             return;
         }
-        
-        // 显示登录中状态
-        const loginStatus = document.getElementById('login-status');
-        loginStatus.textContent = '登录中...';
-        loginStatus.style.color = '#5bc0de';
         
         // 使用SHA-256对密码进行加密
         const hashedPassword = CryptoJS.SHA256(plainPassword).toString();
@@ -131,24 +107,9 @@ function initLoginButton() {
                 
                 // 清空密码输入框
                 document.getElementById('login-password').value = '';
-                
-                // 显示登录成功消息
-                const errorElement = document.getElementById('password-error');
-                errorElement.textContent = '登录成功！';
-                errorElement.style.color = '#5cb85c';
-                errorElement.classList.add('show');
-                setTimeout(() => {
-                    errorElement.classList.remove('show');
-                    errorElement.style.color = '#d9534f'; // 恢复错误消息的颜色
-                }, 3000);
             } else {
                 // 处理验证失败
-                const errorElement = document.getElementById('password-error');
-                errorElement.textContent = response.message || '验证失败';
-                errorElement.classList.add('show');
-                setTimeout(() => {
-                    errorElement.classList.remove('show');
-                }, 3000);
+                console.log('验证失败');
             }
         });
     };
@@ -161,6 +122,18 @@ function initLogoutButton() {
 
 // 初始化认证模块
 function initAuth() {
+    // 清空所有提示信息
+    const errorElement = document.getElementById('password-error');
+    if (errorElement) {
+        errorElement.textContent = '';
+        errorElement.classList.remove('show');
+    }
+    
+    const loginStatus = document.getElementById('login-status');
+    if (loginStatus) {
+        loginStatus.textContent = '';
+    }
+    
     // 初始化UI状态
     updateUIByRole();
     

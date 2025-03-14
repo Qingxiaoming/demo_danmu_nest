@@ -261,8 +261,11 @@ const danmuModule = {
                 if (element.id === 'logout-btn') {
                     // 退出按钮只在已认证状态下显示
                     element.style.display = window.userRole === 'owner' ? 'inline-block' : 'none';
-                } else if (element.id === 'add-danmu-btn' || element.id === 'settings-btn') {
-                    // 添加弹幕和设置按钮只在已认证状态下显示
+                } else if (element.id === 'add-danmu-btn') {
+                    // 添加弹幕按钮在登录状态下始终显示
+                    element.style.display = window.userRole === 'owner' ? 'flex' : 'none';
+                } else if (element.id === 'settings-btn') {
+                    // 设置按钮只在睁眼状态下显示
                     element.style.display = window.userRole === 'owner' ? 'flex' : 'none';
                 } else if (element.classList.contains('login-container')) {
                     // 登录容器显示
@@ -272,9 +275,15 @@ const danmuModule = {
                     element.style.display = 'block';
                 }
             } else {
-                // 在闭眼状态下隐藏所有认证元素
-                element.style.display = 'none';
-                console.log('隐藏元素:', element.className || element.id);
+                // 在闭眼状态下隐藏所有认证元素，但保留添加弹幕按钮
+                if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
+                    // 如果是添加弹幕按钮且用户已登录，保持显示
+                    element.style.display = 'flex';
+                } else {
+                    // 其他认证元素隐藏
+                    element.style.display = 'none';
+                }
+                console.log('处理元素:', element.id || element.className);
             }
         });
         
@@ -293,7 +302,7 @@ const danmuModule = {
         // 初始化显示状态
         this.showNonWaiting = false;
         
-        // 初始化时隐藏认证相关元素
+        // 初始化时隐藏认证相关元素，但保留添加弹幕按钮
         const authContainer = document.querySelector('.auth-container');
         if (authContainer) {
             authContainer.style.display = 'none';
@@ -301,7 +310,13 @@ const danmuModule = {
         
         const authElements = document.querySelectorAll('.auth-element');
         authElements.forEach(element => {
-            element.style.display = 'none';
+            if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
+                // 如果是添加弹幕按钮且用户已登录，保持显示
+                element.style.display = 'flex';
+            } else {
+                // 其他认证元素隐藏
+                element.style.display = 'none';
+            }
         });
         
         // 等待DOM加载完成

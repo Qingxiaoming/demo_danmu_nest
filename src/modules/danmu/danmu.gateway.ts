@@ -758,14 +758,23 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
         });
       }
       
-      this.server.emit('add_danmu', { success: true, message: '添加弹幕成功' });
-      this.logger.log('添加弹幕操作成功', { 
+      // 发送添加/更新成功的消息
+      const successMessage = result.isUpdate ? '更新弹幕成功' : '添加弹幕成功';
+      this.server.emit('add_danmu', { 
+        success: true, 
+        message: successMessage,
+        isUpdate: result.isUpdate
+      });
+      
+      this.logger.log(`${result.isUpdate ? '更新' : '添加'}弹幕操作成功`, { 
         clientId: client.id, 
         nickname,
         textLength: text.length,
-        isSongRequest: text.startsWith('点歌')
+        isSongRequest: text.startsWith('点歌'),
+        isUpdate: result.isUpdate
       });
-      return { success: true };
+      
+      return { success: true, isUpdate: result.isUpdate };
     } catch (error) {
       const errorInfo = {
         clientId: client.id,

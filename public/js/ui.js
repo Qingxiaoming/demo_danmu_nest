@@ -17,12 +17,25 @@ function showAddDanmuDialog() {
     const dialog = document.createElement('div');
     dialog.className = 'acps-dialog';
     dialog.innerHTML = `
-        <h3>添加弹幕</h3>
+        <h3>添加/更新弹幕</h3>
+        <p class="dialog-tip">如果昵称已存在，将更新该昵称的弹幕内容</p>
         <input type="text" id="add-nickname" placeholder="输入昵称">
         <input type="text" id="add-text" placeholder="输入弹幕内容">
         <button id="add-save">保存</button>
         <button id="add-cancel">取消</button>
     `;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .dialog-tip {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+    `;
+    document.head.appendChild(style);
 
     // 添加延时以触发动画
     requestAnimationFrame(() => {
