@@ -5,6 +5,7 @@
 
 // 全局变量
 window.userRole = localStorage.getItem('auth_token') ? 'owner' : 'guest'; // 根据token判断角色
+console.log('初始化用户角色:', window.userRole, '本地存储token:', localStorage.getItem('auth_token'));
 
 // 根据用户角色更新UI
 function updateUIByRole() {
@@ -13,15 +14,17 @@ function updateUIByRole() {
     const addDanmuBtn = document.getElementById('add-danmu-btn');
     const settingsBtn = document.getElementById('settings-btn');
     
+    console.log('更新UI，当前用户角色:', window.userRole, '显示非等待状态:', window.danmu && window.danmu.showNonWaiting);
+    
     // 显示/隐藏添加弹幕按钮和设置按钮
     if (window.userRole === 'owner') {
         // 确保按钮容器始终可见
         addDanmuBtnContainer.style.display = 'flex';
         
         // 添加弹幕按钮在登录状态下始终显示，不管是睁眼还是闭眼
-        addDanmuBtn.style.visibility = 'visible';
+        addDanmuBtn.style.display = 'flex';
         
-        // 只在睁眼状态下显示登出按钮和设置按钮
+        // 设置按钮和登出按钮只在睁眼状态下显示
         if (window.danmu && window.danmu.showNonWaiting) {
             // 登出按钮使用display属性
             logoutBtn.style.display = 'inline-block';
@@ -34,7 +37,7 @@ function updateUIByRole() {
     } else {
         // 非管理员用户只显示toggle按钮
         addDanmuBtnContainer.style.display = 'flex';
-        addDanmuBtn.style.visibility = 'hidden';
+        addDanmuBtn.style.display = 'none';
         settingsBtn.style.visibility = 'hidden';
         logoutBtn.style.display = 'none';
     }
@@ -104,7 +107,23 @@ function initLoginButton() {
                 }
                 
                 window.userRole = 'owner';
+                
+                // 更新UI显示
                 updateUIByRole();
+                
+                // 确保添加弹幕按钮立即显示
+                const addDanmuBtn = document.getElementById('add-danmu-btn');
+                if (addDanmuBtn) {
+                    addDanmuBtn.style.display = 'flex';
+                }
+                
+                // 确保按钮容器可见
+                const btnContainer = document.querySelector('.add-danmu-btn-container');
+                if (btnContainer) {
+                    btnContainer.style.display = 'flex';
+                }
+                
+                // 重新渲染弹幕
                 window.danmu.renderDanmu();
                 
                 // 清空密码输入框

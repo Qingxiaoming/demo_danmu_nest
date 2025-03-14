@@ -56,10 +56,13 @@ function updateLoginStatus(text, color) {
 
 // 检查是否有权限执行管理员操作
 function checkAdminPermission() {
+    console.log('检查管理员权限，当前用户角色:', window.userRole);
     if (window.userRole !== 'owner') {
+        console.log('用户没有管理员权限');
         showAuthError();
         return false;
     }
+    console.log('用户有管理员权限');
     return true;
 }
 

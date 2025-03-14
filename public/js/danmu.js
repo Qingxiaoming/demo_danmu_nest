@@ -272,8 +272,8 @@ const danmuModule = {
                     // 退出按钮只在已认证状态下显示，使用display属性
                     element.style.display = window.userRole === 'owner' ? 'inline-block' : 'none';
                 } else if (element.id === 'add-danmu-btn') {
-                    // 添加弹幕按钮在登录状态下始终显示，使用visibility属性保持占位
-                    element.style.visibility = window.userRole === 'owner' ? 'visible' : 'hidden';
+                    // 添加弹幕按钮在登录状态下始终显示，使用display属性
+                    element.style.display = window.userRole === 'owner' ? 'flex' : 'none';
                 } else if (element.id === 'settings-btn') {
                     // 设置按钮只在睁眼状态下显示，使用visibility属性保持占位
                     element.style.visibility = window.userRole === 'owner' ? 'visible' : 'hidden';
@@ -287,10 +287,10 @@ const danmuModule = {
             } else {
                 // 在闭眼状态下隐藏所有认证元素，但保留添加弹幕按钮
                 if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
-                    // 如果是添加弹幕按钮且用户已登录，保持显示，使用visibility属性保持占位
-                    element.style.visibility = 'visible';
+                    // 如果是添加弹幕按钮且用户已登录，保持显示，使用display属性
+                    element.style.display = 'flex';
                 } else if (element.id === 'settings-btn') {
-                    // 设置按钮使用visibility属性保持占位
+                    // 设置按钮在闭眼状态下隐藏，使用visibility属性保持占位
                     element.style.visibility = 'hidden';
                 } else {
                     // 其他认证元素隐藏，使用display属性
@@ -327,8 +327,8 @@ const danmuModule = {
         const authElements = document.querySelectorAll('.auth-element');
         authElements.forEach(element => {
             if (element.id === 'add-danmu-btn' && window.userRole === 'owner') {
-                // 如果是添加弹幕按钮且用户已登录，保持显示，使用visibility属性保持占位
-                element.style.visibility = 'visible';
+                // 如果是添加弹幕按钮且用户已登录，保持显示，使用display属性
+                element.style.display = 'flex';
             } else if (element.id === 'settings-btn') {
                 // 设置按钮使用visibility属性保持占位
                 element.style.visibility = 'hidden';
@@ -337,6 +337,12 @@ const danmuModule = {
                 element.style.display = 'none';
             }
         });
+        
+        // 确保按钮容器始终可见
+        const btnContainer = document.querySelector('.add-danmu-btn-container');
+        if (btnContainer) {
+            btnContainer.style.display = 'flex';
+        }
         
         // 等待DOM加载完成
         const initToggleButton = () => {

@@ -104,10 +104,120 @@ function showAddDanmuDialog() {
     document.body.appendChild(dialog);
 }
 
-// 显示设置对话框
+// 显示设置菜单
 function showSettingsDialog() {
-    if (!window.utils.checkAdminPermission()) return;
+    console.log('显示设置菜单函数被调用');
+    if (!window.utils.checkAdminPermission()) {
+        console.log('没有管理员权限，返回');
+        return;
+    }
     
+    // 如果已经存在设置菜单，则移除
+    const existingMenu = document.getElementById('settings-menu');
+    if (existingMenu) {
+        console.log('已存在设置菜单，移除');
+        existingMenu.remove();
+        window.danmu.isShowingDialog = false;
+        return;
+    }
+    
+    console.log('创建新的设置菜单');
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    // 创建设置菜单
+    const settingsMenu = document.createElement('div');
+    settingsMenu.id = 'settings-menu';
+    settingsMenu.className = 'settings-menu';
+    
+    // 设置菜单样式
+    settingsMenu.style.position = 'fixed';
+    settingsMenu.style.right = '70px';
+    settingsMenu.style.bottom = '70px';
+    settingsMenu.style.backgroundColor = 'white';
+    settingsMenu.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    settingsMenu.style.borderRadius = '5px';
+    settingsMenu.style.padding = '10px 0';
+    settingsMenu.style.zIndex = '1000';
+    settingsMenu.style.minWidth = '180px';
+    
+    // 添加菜单项
+    const menuItems = [
+        { id: 'shortcut-settings', text: '快捷键设置', icon: 'fas fa-keyboard' },
+        { id: 'ui-settings', text: '界面设置', icon: 'fas fa-palette' },
+        { id: 'queue-settings', text: '排队设置', icon: 'fas fa-list-ol' },
+        { id: 'music-settings', text: '音乐设置', icon: 'fas fa-music' }
+    ];
+    
+    menuItems.forEach(item => {
+        const menuItem = document.createElement('div');
+        menuItem.className = 'settings-menu-item';
+        menuItem.innerHTML = `<i class="${item.icon}"></i> ${item.text}`;
+        
+        // 设置菜单项样式
+        menuItem.style.padding = '10px 15px';
+        menuItem.style.cursor = 'pointer';
+        menuItem.style.transition = 'background-color 0.2s';
+        
+        // 鼠标悬停效果
+        menuItem.addEventListener('mouseover', () => {
+            menuItem.style.backgroundColor = '#f0f0f0';
+        });
+        
+        menuItem.addEventListener('mouseout', () => {
+            menuItem.style.backgroundColor = 'transparent';
+        });
+        
+        // 点击事件
+        menuItem.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+            closeMenu();
+            switch (item.id) {
+                case 'shortcut-settings':
+                    showShortcutSettings();
+                    break;
+                case 'ui-settings':
+                    showUISettings();
+                    break;
+                case 'queue-settings':
+                    showQueueSettings();
+                    break;
+                case 'music-settings':
+                    showMusicSettings();
+                    break;
+            }
+        });
+        
+        settingsMenu.appendChild(menuItem);
+    });
+    
+    // 添加点击外部关闭菜单
+    setTimeout(() => {
+        console.log('添加点击外部关闭菜单的事件监听器');
+        document.addEventListener('click', handleOutsideClick);
+    }, 100);
+    
+    function handleOutsideClick(e) {
+        console.log('点击事件触发，检查是否点击在菜单外部');
+        if (!settingsMenu.contains(e.target) && e.target.id !== 'settings-btn') {
+            console.log('点击在菜单外部，关闭菜单');
+            closeMenu();
+        }
+    }
+    
+    function closeMenu() {
+        console.log('关闭菜单');
+        document.removeEventListener('click', handleOutsideClick);
+        settingsMenu.remove();
+        window.danmu.isShowingDialog = false;
+    }
+    
+    document.body.appendChild(settingsMenu);
+    console.log('设置菜单已添加到文档中');
+}
+
+// 显示快捷键设置对话框
+function showShortcutSettings() {
     // 设置对话框显示状态为true
     window.danmu.isShowingDialog = true;
     
@@ -192,6 +302,177 @@ function showSettingsDialog() {
         };
         console.log('保存按钮点击，新的设置:', newSettings); // 调试输出
         window.utils.saveShortcutSettings(newSettings);
+        closeDialog();
+    };
+
+    dialog.querySelector('#settings-cancel').onclick = closeDialog;
+
+    document.body.appendChild(dialog);
+}
+
+// 显示界面设置对话框
+function showUISettings() {
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'acps-dialog';
+    dialog.innerHTML = `
+        <h3>界面设置</h3>
+        <div class="settings-item">
+            <label>主题颜色：</label>
+            <select id="theme-color">
+                <option value="light">浅色主题</option>
+                <option value="dark">深色主题</option>
+                <option value="blue">蓝色主题</option>
+            </select>
+        </div>
+        <div class="settings-item">
+            <label>字体大小：</label>
+            <select id="font-size">
+                <option value="small">小</option>
+                <option value="medium" selected>中</option>
+                <option value="large">大</option>
+            </select>
+        </div>
+        <div class="settings-actions">
+            <button id="settings-save">保存</button>
+            <button id="settings-cancel">取消</button>
+        </div>
+    `;
+
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+
+    const closeDialog = () => {
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            // 设置对话框显示状态为false
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    };
+
+    dialog.querySelector('#settings-save').onclick = () => {
+        // 保存界面设置的逻辑（待实现）
+        closeDialog();
+    };
+
+    dialog.querySelector('#settings-cancel').onclick = closeDialog;
+
+    document.body.appendChild(dialog);
+}
+
+// 显示排队设置对话框
+function showQueueSettings() {
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'acps-dialog';
+    dialog.innerHTML = `
+        <h3>排队设置</h3>
+        <div class="settings-item">
+            <label>最大排队数量：</label>
+            <input type="number" id="max-queue" value="50" min="1" max="100">
+        </div>
+        <div class="settings-item">
+            <label>自动完成时间(分钟)：</label>
+            <input type="number" id="auto-complete-time" value="30" min="1" max="120">
+        </div>
+        <div class="settings-actions">
+            <button id="settings-save">保存</button>
+            <button id="settings-cancel">取消</button>
+        </div>
+    `;
+
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+
+    const closeDialog = () => {
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            // 设置对话框显示状态为false
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    };
+
+    dialog.querySelector('#settings-save').onclick = () => {
+        // 保存排队设置的逻辑（待实现）
+        closeDialog();
+    };
+
+    dialog.querySelector('#settings-cancel').onclick = closeDialog;
+
+    document.body.appendChild(dialog);
+}
+
+// 显示音乐设置对话框
+function showMusicSettings() {
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'acps-dialog';
+    dialog.innerHTML = `
+        <h3>音乐设置</h3>
+        <div class="settings-item">
+            <label>背景音乐音量：</label>
+            <input type="range" id="bg-volume" min="0" max="100" value="50">
+        </div>
+        <div class="settings-item">
+            <label>提示音效音量：</label>
+            <input type="range" id="alert-volume" min="0" max="100" value="70">
+        </div>
+        <div class="settings-item">
+            <label>自动播放音乐：</label>
+            <input type="checkbox" id="auto-play-music" checked>
+        </div>
+        <div class="settings-actions">
+            <button id="settings-save">保存</button>
+            <button id="settings-cancel">取消</button>
+        </div>
+    `;
+
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+
+    const closeDialog = () => {
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            // 设置对话框显示状态为false
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    };
+
+    dialog.querySelector('#settings-save').onclick = () => {
+        // 保存音乐设置的逻辑（待实现）
         closeDialog();
     };
 
@@ -402,7 +683,9 @@ function showAccountPasswordDialog(data, uid) {
 // 初始化UI事件
 function initUIEvents() {
     // 设置按钮点击事件
-    document.getElementById('settings-btn').onclick = () => {
+    document.getElementById('settings-btn').onclick = (e) => {
+        console.log('设置按钮被点击');
+        e.stopPropagation(); // 阻止事件冒泡
         showSettingsDialog();
     };
     
@@ -430,6 +713,10 @@ function initUIEvents() {
 window.ui = {
     showAddDanmuDialog,
     showSettingsDialog,
+    showShortcutSettings,
+    showUISettings,
+    showQueueSettings,
+    showMusicSettings,
     showAccountPasswordDialog,
     initUIEvents
 }; 
