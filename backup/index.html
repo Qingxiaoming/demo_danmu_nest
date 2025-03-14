@@ -118,7 +118,7 @@
         const danmuContainer = document.getElementById('danmu-container');
         const socket = new WebSocket('ws://127.0.0.1:80');
         let userRole = 'guest'; // 默认为游客模式
-        let showNonWaiting = true; // 默认显示所有状态
+        let showNonWaiting = false; // 默认显示所有状态
 
         socket.onopen = () => {
             console.log('连接到 WebSocket 服务器');

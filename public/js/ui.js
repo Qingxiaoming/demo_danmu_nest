@@ -331,28 +331,38 @@ function showAccountPasswordDialog(data, uid) {
 
     // 添加键盘事件监听
     const handleKeydown = (e) => {
-        if (e.key.toLowerCase() === 'c') {
-            // 按C复制
-            copyBtn.click();
-        } else if (e.key.toLowerCase() === 'r') {
-            // 按R进入编辑模式
-            if (displayMode.style.display !== 'none') {
-                editModeBtn.click();
-            }
-        } else if (e.key === 'Escape') {
-            // ESC关闭对话框或返回显示模式
-            if (editMode.style.display !== 'none') {
-                cancelEditBtn.click();
-            } else {
-                cancelBtn.click();
-            }
-        } else if (e.key === 'Enter') {
-            // Enter保存编辑或在显示模式下复制
-            if (editMode.style.display !== 'none') {
-                saveBtn.click();
-            } else {
+        const key = e.key.toLowerCase();
+        
+        switch (key) {
+            case 'c':
+                // 按C复制
                 copyBtn.click();
-            }
+                break;
+                
+            case 'r':
+                // 按R进入编辑模式
+                if (displayMode.style.display !== 'none') {
+                    editModeBtn.click();
+                }
+                break;
+                
+            case 'escape':
+                // ESC关闭对话框或返回显示模式
+                if (editMode.style.display !== 'none') {
+                    cancelEditBtn.click();
+                } else {
+                    cancelBtn.click();
+                }
+                break;
+                
+            case 'enter':
+                // Enter保存编辑或在显示模式下复制
+                if (editMode.style.display !== 'none') {
+                    saveBtn.click();
+                } else {
+                    copyBtn.click();
+                }
+                break;
         }
     };
     
@@ -387,21 +397,7 @@ function initUIEvents() {
     document.getElementById('add-danmu-btn').onclick = () => {
         showAddDanmuDialog();
     };
-    
-    // 初始化切换按钮状态
-    const toggleBtn = document.getElementById('toggle-btn');
-    const eyeIcon = toggleBtn.querySelector('i');
-    
-    if (window.danmu.showNonWaiting) {
-        // 显示所有状态 - 睁眼
-        eyeIcon.className = 'fas fa-eye';
-        toggleBtn.title = '当前显示全部状态，点击仅显示等待状态';
-    } else {
-        // 仅显示等待状态 - 闭眼
-        eyeIcon.className = 'fas fa-eye-slash';
-        toggleBtn.title = '当前仅显示等待状态，点击显示全部状态';
-    }
-    
+
     // 全局快捷键监听
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key.toLowerCase() === 'i') {
@@ -413,42 +409,6 @@ function initUIEvents() {
         } else if (e.ctrlKey && e.key.toLowerCase() === 't') {
             e.preventDefault();
             document.getElementById('toggle-btn').click();
-        }
-    });
-    
-    // 绑定快捷键到功能
-    const shortcutSettings = window.utils.loadShortcutSettings();
-    document.addEventListener('keydown', (e) => {
-        const keyCombination = [];
-        if (e.ctrlKey) keyCombination.push('Ctrl');
-        if (e.shiftKey) keyCombination.push('Shift');
-        if (e.altKey) keyCombination.push('Alt');
-        if (e.key !== 'Control' && e.key !== 'Shift' && e.key !== 'Alt') {
-            keyCombination.push(e.key.toUpperCase());
-        }
-        const keyString = keyCombination.join('+');
-
-        switch (keyString) {
-            case shortcutSettings.delete:
-                // 执行删除操作
-                console.log('执行删除操作');
-                break;
-            case shortcutSettings.complete:
-                // 执行完成操作
-                console.log('执行完成操作');
-                break;
-            case shortcutSettings.edit:
-                // 执行编辑操作
-                console.log('执行编辑操作');
-                break;
-            case shortcutSettings.acps:
-                // 执行账密操作
-                console.log('执行账密操作');
-                break;
-            case shortcutSettings.add:
-                // 执行增加操作
-                console.log('执行增加操作');
-                break;
         }
     });
 }

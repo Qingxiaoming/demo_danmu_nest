@@ -10,15 +10,40 @@ window.userRole = localStorage.getItem('auth_token') ? 'owner' : 'guest'; // 根
 function updateUIByRole() {
     const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
     const logoutBtn = document.getElementById('logout-btn');
+    const addDanmuBtn = document.getElementById('add-danmu-btn');
+    const settingsBtn = document.getElementById('settings-btn');
     
+    // 显示/隐藏添加弹幕按钮和设置按钮
     if (window.userRole === 'owner') {
-        addDanmuBtnContainer.style.display = 'block';
-        logoutBtn.style.display = 'inline-block';
-        window.utils.updateLoginStatus('已登录', '#5cb85c');
+        // 确保按钮容器始终可见
+        addDanmuBtnContainer.style.display = 'flex';
+        
+        // 只在睁眼状态下显示管理员按钮
+        if (window.danmu && window.danmu.showNonWaiting) {
+            logoutBtn.style.display = 'inline-block';
+            addDanmuBtn.style.display = 'flex';
+            settingsBtn.style.display = 'flex';
+        } else {
+            logoutBtn.style.display = 'none';
+            addDanmuBtn.style.display = 'none';
+            settingsBtn.style.display = 'none';
+        }
     } else {
-        addDanmuBtnContainer.style.display = 'none';
+        // 非管理员用户只显示toggle按钮
+        addDanmuBtnContainer.style.display = 'flex';
+        addDanmuBtn.style.display = 'none';
+        settingsBtn.style.display = 'none';
         logoutBtn.style.display = 'none';
-        window.utils.updateLoginStatus('未登录', '#ff5722');
+    }
+    
+    // 更新登录状态文本
+    const loginStatus = document.getElementById('login-status');
+    if (loginStatus && window.danmu && window.danmu.showNonWaiting) {
+        if (window.userRole === 'owner') {
+            window.utils.updateLoginStatus('已登录', '#5cb85c');
+        } else {
+            window.utils.updateLoginStatus('未登录', '#ff5722');
+        }
     }
 }
 

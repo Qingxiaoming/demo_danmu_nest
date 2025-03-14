@@ -12,28 +12,24 @@
         <img src="./-klbw3Qjzp-691xZbT1kSdw-dw.gif" alt="可拖动GIF" height="100">
     </div>
     <h1></h1>
-    <div class="login-container">
-        <form id="login-form" onsubmit="return false;">
-            <input type="password" id="login-password" name="password" placeholder="输入密码" autocomplete="current-password">
-            <button type="submit" id="login-btn">Start</button>
-        </form>
-        <script>
-            document.getElementById('login-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                document.getElementById('login-btn').click();
-            });
-        </script>
-    </div>
-    <div class="toggle-container">
-        <button id="toggle-btn" title="切换显示全部/仅等待状态"><i class="fas fa-eye"></i></button>
-        <div id="password-error" class="error-message"></div>
-        <div id="login-status" class="status-message"></div>
-        <button id="logout-btn" title="退出登录" style="display: none; margin-left: 10px; background-color: #d9534f; color: white; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer;">退出</button>
+    <div class="auth-container">
+        <div class="login-container auth-element">
+            <form id="login-form" onsubmit="return false;">
+                <input type="password" id="login-password" name="password" placeholder="输入密码" autocomplete="current-password">
+                <button type="submit" id="login-btn">Start</button>
+            </form>
+        </div>
+        <div class="toggle-container">
+            <div id="password-error" class="error-message auth-element"></div>
+            <div id="login-status" class="status-message auth-element"></div>
+            <button id="logout-btn" title="退出登录" class="auth-element" style="display: none; margin-left: 10px; background-color: #d9534f; color: white; border: none; border-radius: 3px; padding: 3px 8px; cursor: pointer;">退出</button>
+        </div>
     </div>
     <div id="danmu-container"></div>
     <div class="add-danmu-btn-container" style="display: none;">
-        <button id="add-danmu-btn" title="添加弹幕"><i class="fas fa-plus"></i></button>
-        <button id="settings-btn" title="设置"><i class="fas fa-cog"></i></button>
+        <button id="toggle-btn" title="当前仅显示等待状态，点击显示全部状态"><i class="fas fa-eye-slash"></i></button>
+        <button id="add-danmu-btn" title="添加弹幕" class="auth-element"><i class="fas fa-plus"></i></button>
+        <button id="settings-btn" title="设置" class="auth-element"><i class="fas fa-cog"></i></button>
     </div>
     <div id="server-error" class="error-message" style="display: none; color: red; font-weight: bold; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);">服务器未连接</div>
     <div id="music-player" class="music-player">

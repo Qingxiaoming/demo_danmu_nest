@@ -279,3 +279,41 @@ body {
     box-shadow: 0 0 12px rgba(74, 144, 226, 0.4);
 }
 
+/* 认证相关容器样式 */
+.auth-container {
+    margin-bottom: 20px;
+}
+
+/* 认证元素的默认样式 */
+.auth-element {
+    transition: all 0.3s ease;
+    opacity: 1;
+    display: block;
+}
+
+/* 在非等待状态下隐藏认证元素 */
+.auth-element.hidden {
+    opacity: 0;
+    display: none !important;
+}
+
+/* 确保toggle按钮始终可见 */
+#toggle-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 确保add-danmu-btn-container始终可见 */
+.add-danmu-btn-container {
+    display: flex !important;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+/* 调整按钮容器中的auth-element按钮 */
+.add-danmu-btn-container .auth-element {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+

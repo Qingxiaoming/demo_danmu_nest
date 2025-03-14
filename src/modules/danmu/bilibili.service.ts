@@ -23,7 +23,7 @@ export class BilibiliService {
         },
         headers: this.headers
       });
-      
+       
       if (response.data && response.data.code === 0 && response.data.data && response.data.data.room) {
         return response.data.data.room;
       } else {
