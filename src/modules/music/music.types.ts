@@ -35,6 +35,9 @@ export class Song {
   @ApiProperty({ description: '来源平台', enum: MusicPlatform })
   platform: MusicPlatform;
 
+  @ApiProperty({ description: '是否需要VIP才能播放', required: false })
+  vip?: boolean;
+
   @ApiProperty({ description: '平台特定的额外数据', required: false })
   data?: any;
   

@@ -15,38 +15,64 @@ export class MusicService {
   ) {}
 
   /**
-   * 搜索歌曲（从两个平台）
+   * 搜索歌曲
    * @param keyword 搜索关键词
-   * @param limit 每个平台返回的结果数量
+   * @param limit 每个平台返回的最大结果数
    * @returns 综合搜索结果
    */
-  async searchSong(keyword: string, limit: number = 5): Promise<CombinedSearchResult> {
-    this.logger.log(`搜索歌曲: ${keyword}`);
-    
+  async searchSong(keyword: string, limit: number = 10): Promise<CombinedSearchResult> {
     try {
-      // 创建一个Promise.race，确保整体搜索不会超时
-      const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error('搜索请求超时')), this.REQUEST_TIMEOUT);
+      this.logger.log(`搜索歌曲: ${keyword}, 限制: ${limit}首/平台`);
+      
+      // 创建一个可取消的超时Promise
+      let timeoutId: NodeJS.Timeout;
+      const timeoutPromise = new Promise<{ error: number; message: string }>((resolve) => {
+        timeoutId = setTimeout(() => {
+          this.logger.warn(`搜索歌曲请求超时: ${keyword}`);
+          resolve({ 
+            error: E.RATE_LIMIT_EXCEEDED.error, 
+            message: '搜索歌曲请求超时' 
+          });
+        }, this.REQUEST_TIMEOUT);
       });
       
-      // 并行搜索两个平台，使用Promise.allSettled确保一个平台失败不会影响其他平台
-      const searchPromise = Promise.allSettled([
-        this.qqMusicService.search(keyword, limit),
-        this.neteaseMusicService.search(keyword, limit),
-      ]);
+      // 并行搜索两个平台
+      const qqPromise = this.qqMusicService.search(keyword, limit).catch(err => {
+        this.logger.error(`QQ音乐搜索出错: ${err.message}`, err.stack);
+        return [];
+      });
       
-      // 使用Promise.race确保整体搜索不会超时
-      const results = await Promise.race([searchPromise, timeoutPromise]);
+      const neteasePromise = this.neteaseMusicService.search(keyword, limit).catch(err => {
+        this.logger.error(`网易云音乐搜索出错: ${err.message}`, err.stack);
+        return [];
+      });
       
-      if (!results) {
-        throw new Error('搜索请求超时');
-      }
+      // 使用Promise.allSettled等待所有搜索完成，无论成功失败
+      const [qqResult, neteaseResult] = await Promise.allSettled([qqPromise, neteasePromise]);
+      
+      // 清除超时计时器
+      clearTimeout(timeoutId);
       
       // 处理搜索结果
-      const [qqResult, neteaseResult] = results as PromiseSettledResult<Song[]>[];
+      let qqSongs: Song[] = [];
+      if (qqResult.status === 'fulfilled') {
+        qqSongs = qqResult.value.map(song => ({
+          ...song,
+          platform: MusicPlatform.QQ,
+          // 添加VIP标识处理
+          vip: song.vip === true || song.fee === 1 || song.pay_play === 1
+        }));
+      }
       
-      const qqSongs = qqResult.status === 'fulfilled' ? qqResult.value : [];
-      const neteaseSongs = neteaseResult.status === 'fulfilled' ? neteaseResult.value : [];
+      let neteaseSongs: Song[] = [];
+      if (neteaseResult.status === 'fulfilled') {
+        neteaseSongs = neteaseResult.value.map(song => ({
+          ...song,
+          platform: MusicPlatform.NETEASE,
+          // 添加VIP标识处理
+          vip: song.vip === true || song.fee === 1
+        }));
+      }
       
       // 记录失败的平台
       if (qqResult.status === 'rejected') {
@@ -281,4 +307,4 @@ export class MusicService {
       return songWithLrc;
     }
   }
-} 
+}

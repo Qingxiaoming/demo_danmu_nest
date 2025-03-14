@@ -327,7 +327,6 @@ function showUISettings() {
             <label>主题颜色：</label>
             <select id="theme-color">
                 <option value="light">浅色主题</option>
-                <option value="dark">深色主题</option>
                 <option value="blue">蓝色主题</option>
             </select>
         </div>
@@ -680,6 +679,231 @@ function showAccountPasswordDialog(data, uid) {
     document.body.appendChild(dialog);
 }
 
+// 显示点歌对话框
+function showSongRequestDialog() {
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'acps-dialog';
+    dialog.innerHTML = `
+        <h3>点歌</h3>
+        <p class="dialog-tip">输入歌曲名称或歌手名称进行搜索</p>
+        <input type="text" id="song-search-input" placeholder="输入歌曲名称">
+        <div class="settings-actions">
+            <button id="song-search-btn">搜索</button>
+            <button id="song-cancel-btn">取消</button>
+        </div>
+    `;
+
+    // 添加延时以触发动画
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+
+    const searchButton = dialog.querySelector('#song-search-btn');
+    const cancelButton = dialog.querySelector('#song-cancel-btn');
+    const searchInput = dialog.querySelector('#song-search-input');
+
+    // 添加键盘事件监听
+    const handleKeydown = (e) => {
+        if (e.key === 'Enter') {
+            searchButton.click();
+        } else if (e.key === 'Escape') {
+            cancelButton.click();
+        }
+    };
+    document.addEventListener('keydown', handleKeydown);
+
+    // 搜索按钮点击事件
+    searchButton.onclick = () => {
+        const songName = searchInput.value.trim();
+        if (songName) {
+            // 发送搜索请求到服务器
+            window.socket.emit('search_song', { keyword: songName });
+            closeDialog();
+        } else {
+            alert('请输入歌曲名称');
+        }
+    };
+
+    // 取消按钮点击事件
+    cancelButton.onclick = () => {
+        closeDialog();
+    };
+
+    // 关闭对话框函数
+    const closeDialog = () => {
+        document.removeEventListener('keydown', handleKeydown);
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            // 设置对话框显示状态为false
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    };
+
+    // 自动聚焦到输入框
+    setTimeout(() => {
+        searchInput.focus();
+    }, 100);
+
+    document.body.appendChild(dialog);
+}
+
+/**
+ * 显示歌曲搜索结果对话框
+ * @param {Array} songs 歌曲搜索结果列表
+ */
+function showSongSearchResults(songs) {
+    if (!songs || songs.length === 0) {
+        alert('没有找到相关歌曲');
+        return;
+    }
+    
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'song-search-dialog';
+    
+    // 创建倒计时元素
+    const countdownTime = 20; // 20秒倒计时
+    let remainingTime = countdownTime;
+    
+    let dialogContent = `
+        <div class="song-search-header">
+            <h3>选择要播放的歌曲</h3>
+            <div class="song-countdown" id="song-countdown">${remainingTime}秒后自动播放第一首</div>
+        </div>
+        <div class="song-list">
+    `;
+    
+    // 添加歌曲列表
+    songs.forEach((song, index) => {
+        const isVip = song.vip ? '<span class="song-vip">VIP</span>' : '';
+        dialogContent += `
+            <div class="song-item" data-index="${index}">
+                <div class="song-cover">
+                    <img src="${song.cover || 'default-cover.jpg'}" alt="${song.name}">
+                </div>
+                <div class="song-info">
+                    <div class="song-name">${song.name} ${isVip}</div>
+                    <div class="song-artist">${song.artist} - ${song.platform}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    dialogContent += `
+        </div>
+        <button id="song-search-cancel">取消</button>
+    `;
+    
+    dialog.innerHTML = dialogContent;
+    document.body.appendChild(dialog);
+    
+    // 添加延时以触发动画
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+    
+    // 设置倒计时
+    let countdownInterval = setInterval(() => {
+        remainingTime--;
+        const countdownElement = document.getElementById('song-countdown');
+        if (countdownElement) {
+            countdownElement.textContent = `${remainingTime}秒后自动播放第一首`;
+        }
+        
+        if (remainingTime <= 0) {
+            clearInterval(countdownInterval);
+            // 自动播放第一首歌
+            playSelectedSong(songs[0]);
+            closeDialog();
+        }
+    }, 1000);
+    
+    // 点击歌曲项播放歌曲
+    const songItems = dialog.querySelectorAll('.song-item');
+    songItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const index = parseInt(item.dataset.index);
+            playSelectedSong(songs[index]);
+            closeDialog();
+        });
+    });
+    
+    // 取消按钮
+    const cancelButton = dialog.querySelector('#song-search-cancel');
+    cancelButton.addEventListener('click', () => {
+        closeDialog();
+    });
+    
+    // 关闭对话框函数
+    function closeDialog() {
+        clearInterval(countdownInterval);
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            // 设置对话框显示状态为false
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    }
+    
+    // 播放选中的歌曲
+    function playSelectedSong(song) {
+        console.log('播放选中的歌曲:', song);
+        
+        // 检查歌曲对象是否包含必要的id和platform属性
+        if (!song || !song.id || !song.platform) {
+            console.error('歌曲信息不完整，无法播放', song);
+            alert('歌曲信息不完整，无法播放');
+            return;
+        }
+        
+        // 保存当前选中的歌曲信息到全局变量，以便在收到服务器响应前显示
+        window.player.currentSelectedSong = {
+            id: song.id,
+            platform: song.platform,
+            name: song.name || '加载中...',
+            artist: song.artist || '未知歌手',
+            album: song.album || '',
+            cover: song.cover || null,
+            duration: song.duration || 0,
+            // url和歌词将由服务器返回
+            url: null,
+            lrc: null
+        };
+        
+        // 立即显示歌曲信息，但不播放
+        window.player.showSongInfo(window.player.currentSelectedSong);
+        
+        // 发送选中的歌曲到服务器
+        window.socket.emit('play_selected_song', { 
+            songId: song.id, 
+            platform: song.platform 
+        });
+        
+        // 记录日志
+        console.log(`发送播放请求: ID=${song.id}, 平台=${song.platform}, 歌曲=${song.name}`);
+    }
+}
+
 // 初始化UI事件
 function initUIEvents() {
     // 设置按钮点击事件
@@ -718,5 +942,7 @@ window.ui = {
     showQueueSettings,
     showMusicSettings,
     showAccountPasswordDialog,
+    showSongSearchResults,
+    showSongRequestDialog,
     initUIEvents
 }; 

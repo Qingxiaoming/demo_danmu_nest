@@ -8,6 +8,7 @@ import E, { normalizeError } from '../../common/error';
 import { EnhancedLoggerService } from '../../core/services/logger.service';
 import { BilibiliService } from './bilibili.service';
 import { MusicService } from '../music/music.service';
+import { Song } from '../music/music.types';
 import { Interval } from '@nestjs/schedule';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -158,10 +159,25 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       
       if (searchResult && searchResult.defaultSong) {
         this.logger.log(`找到匹配歌曲: ${searchResult.defaultSong.name} - ${searchResult.defaultSong.artist} (${searchResult.defaultSong.platform})`);
-        const songInfo = await this.musicService.getFullSongInfo(searchResult.defaultSong);
         
-        // 发送歌曲信息到前端
-        await this.sendSongInfoToClients(songInfo);
+        // 发送搜索结果到前端，让用户选择
+        const allSongs = [];
+        searchResult.results.forEach(platformResult => {
+          if (platformResult.songs && platformResult.songs.length > 0) {
+            platformResult.songs.forEach(song => allSongs.push(song));
+          }
+        });
+        
+        if (allSongs.length > 0) {
+          this.logger.log(`发送${allSongs.length}首歌曲搜索结果到前端`);
+          this.server.emit('song_search_results', {
+            success: true,
+            keyword: searchResult.keyword,
+            songs: allSongs
+          });
+        } else {
+          this.logger.warn(`B站点歌失败: 未找到可播放的歌曲 "${songName}"`);
+        }
       } else {
         this.logger.warn(`B站点歌失败: 未找到歌曲 "${songName}"`);
       }
@@ -169,43 +185,8 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       this.logger.error(`B站点歌过程中发生错误: ${error.message}`, { 
         songName, 
         nickname: danmu.nickname,
-        errorStack: error.stack,
         errorCode: error.error || 'UNKNOWN_ERROR'
       });
-    }
-  }
-  
-  /**
-   * 发送歌曲信息到所有连接的客户端
-   * @param songInfo 歌曲信息
-   */
-  private async sendSongInfoToClients(songInfo: any) {
-    if (!this.server) {
-      this.logger.warn('WebSocket服务器未初始化，无法发送歌曲信息');
-      return;
-    }
-    
-    if (songInfo.error) {
-      this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但出现错误: ${songInfo.error.message} (错误码: ${songInfo.error.code})`);
-      this.server.emit('play_song', {
-        success: true,
-        song: songInfo
-      });
-      this.logger.warn(`已发送带有错误信息的歌曲信息到前端: ${songInfo.name} (错误: ${songInfo.error.message})`);
-    } else if (songInfo.url) {
-      this.logger.log(`点歌成功: ${songInfo.name} - ${songInfo.artist}, URL获取成功`);
-      this.server.emit('play_song', {
-        success: true,
-        song: songInfo
-      });
-      this.logger.log(`已发送歌曲信息到前端: ${songInfo.name}`);
-    } else {
-      this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但URL获取失败`);
-      this.server.emit('play_song', {
-        success: true,
-        song: songInfo
-      });
-      this.logger.warn(`已发送不完整的歌曲信息到前端: ${songInfo.name} (无URL)`);
     }
   }
 
@@ -700,7 +681,6 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       if (!nickname) {
         this.logger.warn('添加弹幕请求缺少昵称参数', { 
           clientId: client.id, 
-          payload,
           errorCode: E.DANMU_NICKNAME_INVALID.error
         });
         throw E.DANMU_NICKNAME_INVALID;
@@ -709,7 +689,6 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       if (!text) {
         this.logger.warn('添加弹幕请求缺少内容参数', { 
           clientId: client.id, 
-          payload,
           errorCode: E.DANMU_TEXT_EMPTY.error
         });
         throw E.DANMU_TEXT_EMPTY;
@@ -725,37 +704,54 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
 
       const result = await this.danmuService.addDanmu(nickname, text);
       
-      // 如果是点歌请求且找到了歌曲，发送歌曲信息
-      if (result.songInfo) {
-        const songInfo = result.songInfo;
-        
-        if (songInfo.error) {
-          this.logger.warn('发送带有错误信息的点歌信息到前端', { 
-            songName: songInfo.name,
-            artist: songInfo.artist,
-            platform: songInfo.platform,
-            errorCode: songInfo.error.code,
-            errorMessage: songInfo.error.message
-          });
-        } else if (songInfo.url) {
-          this.logger.log('发送点歌信息到前端', { 
-            songName: songInfo.name,
-            artist: songInfo.artist,
-            platform: songInfo.platform,
-            hasUrl: true
-          });
-        } else {
-          this.logger.warn('发送不完整的点歌信息到前端（无URL）', { 
-            songName: songInfo.name,
-            artist: songInfo.artist,
-            platform: songInfo.platform
+      // 检查是否是点歌请求
+      if (text.startsWith('点歌') || text.startsWith('点歌 ')) {
+        const songName = text.substring(text.startsWith('点歌 ') ? 3 : 2).trim();
+        if (songName) {
+          // 如果有搜索结果，发送到前端
+          if (result.searchResult && result.searchResult.results) {
+            // 收集所有平台的歌曲
+            const allSongs = [];
+            result.searchResult.results.forEach(platformResult => {
+              if (platformResult.songs && platformResult.songs.length > 0) {
+                platformResult.songs.forEach(song => allSongs.push(song));
+              }
+            });
+            
+            if (allSongs.length > 0) {
+              this.logger.log(`发送${allSongs.length}首歌曲搜索结果到前端`);
+              this.server.emit('song_search_results', {
+                success: true,
+                keyword: result.searchResult.keyword,
+                songs: allSongs
+              });
+              
+              // 发送添加/更新成功的消息
+              const successMessage = result.isUpdate ? '更新弹幕成功' : '添加弹幕成功';
+              this.server.emit('add_danmu', { 
+                success: true, 
+                message: successMessage,
+                isUpdate: result.isUpdate
+              });
+              
+              this.logger.log(`${result.isUpdate ? '更新' : '添加'}弹幕操作成功`, { 
+                clientId: client.id, 
+                nickname,
+                textLength: text.length,
+                isSongRequest: true,
+                isUpdate: result.isUpdate
+              });
+              
+              return { success: true, isUpdate: result.isUpdate };
+            }
+          }
+          
+          // 如果没有找到歌曲，发送空结果
+          this.server.emit('song_search_results', {
+            success: false,
+            message: '未找到相关歌曲'
           });
         }
-        
-        this.server.emit('play_song', {
-          success: true,
-          song: songInfo
-        });
       }
       
       // 发送添加/更新成功的消息
@@ -780,14 +776,147 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
         clientId: client.id,
         nickname: payload?.nickname,
         errorCode: error.error || E.UNDEFINED.error,
-        errorMessage: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        errorMessage: error.message
       };
       
       this.logger.error('添加弹幕失败', errorInfo);
       const errorResponse = handleWsError(error);
       this.server.emit('add_danmu', errorResponse);
       return errorResponse;
+    }
+  }
+
+  /**
+   * 处理播放选中歌曲事件
+   */
+  @SubscribeMessage('play_selected_song')
+  async handlePlaySelectedSong(client: Socket, payload: any) {
+    try {
+      const { songId, platform } = payload || {};
+      
+      // 记录详细的请求信息
+      this.logger.log('收到播放选中歌曲请求', { 
+        clientId: client.id, 
+        songId,
+        platform
+      });
+      
+      if (!songId || !platform) {
+        this.logger.warn('播放选中歌曲请求缺少必要参数', { 
+          clientId: client.id, 
+          errorCode: E.INVALID_PARAMS.error
+        });
+        
+        // 发送错误响应到客户端
+        this.server.emit('play_song', {
+          success: false,
+          message: '请求缺少必要参数(songId或platform)',
+          song: { id: songId, platform }
+        });
+        
+        throw E.INVALID_PARAMS;
+      }
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的播放歌曲操作', { 
+          clientId: client.id,
+          errorCode: E.AUTH_FAILED.error
+        });
+        
+        // 发送错误响应到客户端
+        this.server.emit('play_song', {
+          success: false,
+          message: '未授权的操作',
+          song: { id: songId, platform }
+        });
+        
+        throw E.AUTH_FAILED;
+      }
+
+      this.logger.log(`处理播放选中歌曲请求: ${songId} (${platform})`);
+      
+      // 根据ID和平台获取完整歌曲信息
+      try {
+        // 创建符合Song类型的最小化对象，使用占位符值
+        this.logger.log(`开始获取歌曲URL和歌词: ${songId} (${platform})`);
+        
+        const song: Song = {
+          id: songId,
+          platform: platform,
+          name: '加载中...',
+          artist: '未知歌手',
+          album: '',
+          duration: 0,
+          cover: ''
+        };
+        
+        const fullSongInfo = await this.musicService.getFullSongInfo(song);
+        
+        if (fullSongInfo.url) {
+          this.logger.log(`获取歌曲URL成功: ${songId} (${platform})`);
+          this.server.emit('play_song', {
+            success: true,
+            song: {
+              id: songId,
+              platform: platform,
+              url: fullSongInfo.url,
+              lrc: fullSongInfo.lrc || ''
+            }
+          });
+          return { success: true };
+        } else {
+          this.logger.warn(`获取歌曲URL失败: ${songId} (${platform})`, { 
+            errorCode: fullSongInfo.error?.code || E.API_ERROR.error,
+            errorMessage: fullSongInfo.error?.message || '未知错误'
+          });
+          
+          this.server.emit('play_song', {
+            success: false,
+            song: {
+              id: songId,
+              platform: platform,
+              error: {
+                code: fullSongInfo.error?.code || E.API_ERROR.error,
+                message: fullSongInfo.error?.message || '无法获取歌曲播放地址'
+              }
+            },
+            message: fullSongInfo.error?.message || '无法获取歌曲播放地址'
+          });
+          return { success: false, message: '无法获取歌曲播放地址' };
+        }
+      } catch (error) {
+        this.logger.error(`获取歌曲URL和歌词失败: ${error.message}`, {
+          songId,
+          platform,
+          errorCode: error.error || E.API_ERROR.error
+        });
+        
+        this.server.emit('play_song', {
+          success: false,
+          song: {
+            id: songId,
+            platform: platform,
+            error: {
+              code: error.error || E.API_ERROR.error,
+              message: error.message || '获取歌曲信息失败'
+            }
+          },
+          message: '获取歌曲信息失败: ' + error.message
+        });
+        
+        return { success: false, message: '获取歌曲信息失败' };
+      }
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        songId: payload?.songId,
+        platform: payload?.platform,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message
+      };
+      
+      this.logger.error('播放选中歌曲失败', errorInfo);
+      return handleWsError(error);
     }
   }
 

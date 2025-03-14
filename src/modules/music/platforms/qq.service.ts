@@ -182,6 +182,7 @@ export class QQMusicService {
       duration: item.interval,
       cover: `https://y.gtimg.cn/music/photo_new/T002R300x300M000${item.albummid}.jpg`,
       platform: MusicPlatform.QQ,
+      vip: item.pay_play === 1 || item.pay_month === 1 || item.pay_down === 1 || item.pay === 1
     };
   }
 } 

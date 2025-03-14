@@ -7,8 +7,83 @@
 let currentLyrics = [];
 let lyricTimer = null;
 
+// 显示歌曲信息但不播放
+function showSongInfo(song) {
+    if (!song) {
+        console.error('无效的歌曲对象');
+        return;
+    }
+    
+    console.log('显示歌曲信息:', song);
+    
+    const musicPlayer = document.getElementById('music-player');
+    const musicTitle = document.getElementById('music-title');
+    const musicArtist = document.getElementById('music-artist');
+    const musicCover = document.getElementById('music-cover');
+    const musicLyrics = document.getElementById('music-lyrics');
+    
+    // 设置歌曲信息
+    musicTitle.textContent = song.name || '未知歌曲';
+    musicArtist.textContent = song.artist || '未知歌手';
+    
+    // 设置封面图片
+    try {
+        if (song.cover && song.cover.trim() !== '') {
+            musicCover.src = song.cover;
+            console.log('使用歌曲提供的封面:', song.cover);
+        } else {
+            // 使用相对路径的默认封面
+            musicCover.src = './images/default-cover.jpg';
+            console.log('使用默认封面');
+        }
+    } catch (error) {
+        console.error('设置封面图片时出错:', error);
+        musicCover.src = './images/default-cover.jpg';
+    }
+    
+    // 添加封面图片加载错误处理
+    musicCover.onerror = function() {
+        console.warn('封面图片加载失败，使用默认封面');
+        this.src = './images/default-cover.jpg';
+        // 防止循环触发错误
+        this.onerror = null;
+    };
+    
+    // 显示加载中的提示
+    musicLyrics.innerHTML = '<p class="current-lyric">加载中...</p>';
+    
+    // 显示播放器
+    musicPlayer.classList.add('show');
+}
+
 // 播放歌曲
 function playSong(song) {
+    // 检查歌曲对象是否有效
+    if (!song) {
+        console.error('无效的歌曲对象');
+        alert('无法播放：无效的歌曲信息');
+        return;
+    }
+    
+    console.log('播放歌曲:', song);
+    
+    // 如果有本地存储的歌曲信息，合并服务器返回的信息
+    if (window.player && window.player.currentSelectedSong && 
+        song.id === window.player.currentSelectedSong.id && 
+        song.platform === window.player.currentSelectedSong.platform) {
+        console.log('合并本地存储的歌曲信息和服务器返回的URL和歌词');
+        // 只使用服务器返回的URL和歌词，其他信息使用本地存储的
+        song = {
+            ...window.player.currentSelectedSong,
+            url: song.url,
+            lrc: song.lrc,
+            error: song.error // 保留错误信息
+        };
+        console.log('合并后的歌曲信息:', song);
+    } else {
+        console.warn('没有找到匹配的本地歌曲信息，使用服务器返回的信息');
+    }
+    
     const musicPlayer = document.getElementById('music-player');
     const musicTitle = document.getElementById('music-title');
     const musicArtist = document.getElementById('music-artist');
@@ -17,9 +92,31 @@ function playSong(song) {
     const musicLyrics = document.getElementById('music-lyrics');
     
     // 设置歌曲信息
-    musicTitle.textContent = song.name;
-    musicArtist.textContent = song.artist;
-    musicCover.src = song.cover || 'default-cover.jpg';
+    musicTitle.textContent = song.name || '未知歌曲';
+    musicArtist.textContent = song.artist || '未知歌手';
+    
+    // 修复封面图片处理逻辑
+    try {
+        if (song.cover && song.cover.trim() !== '') {
+            musicCover.src = song.cover;
+            console.log('使用歌曲提供的封面:', song.cover);
+        } else {
+            // 使用相对路径的默认封面
+            musicCover.src = './images/default-cover.jpg';
+            console.log('使用默认封面');
+        }
+    } catch (error) {
+        console.error('设置封面图片时出错:', error);
+        musicCover.src = './images/default-cover.jpg';
+    }
+    
+    // 添加封面图片加载错误处理
+    musicCover.onerror = function() {
+        console.warn('封面图片加载失败，使用默认封面');
+        this.src = './images/default-cover.jpg';
+        // 防止循环触发错误
+        this.onerror = null;
+    };
     
     // 检查是否有错误信息
     if (song.error) {
@@ -172,16 +269,48 @@ function startLyricScroll() {
     }, 100);
 }
 
+
+function initDraggablePlayer() {
+    const musicPlayer = document.getElementById("music-player");
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+    musicPlayer.onmousedown = function(e) {
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    };
+
+    function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        musicPlayer.style.top = (musicPlayer.offsetTop - pos2) + "px"; // 更新top位置
+
+        musicPlayer.style.left = (musicPlayer.offsetLeft - pos1) + "px"; // 更新left位置
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+}
+
 // 初始化播放器
 function initPlayer() {
-    // 播放器初始化代码，如果有的话
+    initDraggablePlayer(); // 初始化可拖动功能
 }
 
 // 导出播放器模块
 window.player = {
     playSong,
+    showSongInfo,
     updateProgress,
     parseLyrics,
     startLyricScroll,
-    initPlayer
+    initPlayer,
+    currentSelectedSong: null // 初始化为null
 }; 

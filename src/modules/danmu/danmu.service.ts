@@ -121,23 +121,20 @@ export class DanmuService {
       
       // 检查是否是点歌请求
       let songInfo = null;
+      let searchResult = null;
       if (text.startsWith('点歌') || text.startsWith('点歌 ')) {
         const songName = text.substring(text.startsWith('点歌 ') ? 3 : 2).trim();
         if (songName) {
           try {
             // 搜索歌曲
             this.logger.log(`收到点歌请求: "${songName}"`);
-            const searchResult = await this.musicService.searchSong(songName);
+            searchResult = await this.musicService.searchSong(songName);
             
+            // 不再自动获取默认歌曲的完整信息，而是返回搜索结果
             if (searchResult && searchResult.defaultSong) {
               this.logger.log(`找到匹配歌曲: ${searchResult.defaultSong.name} - ${searchResult.defaultSong.artist} (${searchResult.defaultSong.platform})`);
-              songInfo = await this.musicService.getFullSongInfo(searchResult.defaultSong);
-              
-              if (songInfo.url) {
-                this.logger.log(`点歌成功: ${songInfo.name} - ${songInfo.artist}, URL获取成功`);
-              } else {
-                this.logger.warn(`点歌部分成功: ${songInfo.name} - ${songInfo.artist}, 但URL获取失败`);
-              }
+              // 只保存默认歌曲的基本信息，不获取完整信息
+              songInfo = searchResult.defaultSong;
             } else {
               this.logger.warn(`点歌失败: 未找到歌曲 "${songName}"`);
             }
@@ -187,6 +184,7 @@ export class DanmuService {
         success: true,
         data: danmu,
         songInfo,
+        searchResult,
         isUpdate: !!existingDanmu
       };
     } catch (error) {

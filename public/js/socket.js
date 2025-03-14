@@ -76,7 +76,7 @@ function initSocket() {
 function setupSocketEvents() {
     // 定义所有需要监听的事件
     const socketEvents = [
-        'update', 'get_acps', 'update_acps', 'add_danmu', 'play_song'
+        'update', 'get_acps', 'update_acps', 'add_danmu', 'play_song', 'song_search_results'
     ];
     // 为每个事件添加监听器
     socketEvents.forEach(eventName => {
@@ -117,9 +117,54 @@ function handleSocketEvent(eventName, data) {
             break;
             
         case 'play_song':
-            console.log('收到点歌请求:', data);
+            console.log('收到播放歌曲响应:', data);
             if (data && data.success && data.song) {
-                window.player.playSong(data.song);
+                console.log(`收到歌曲URL和歌词: ID=${data.song.id}, 平台=${data.song.platform}`);
+                
+                // 检查是否有匹配的本地歌曲信息
+                if (window.player.currentSelectedSong && 
+                    data.song.id === window.player.currentSelectedSong.id && 
+                    data.song.platform === window.player.currentSelectedSong.platform) {
+                    
+                    // 播放歌曲，此时会自动合并本地存储的歌曲信息和服务器返回的URL和歌词
+                    window.player.playSong(data.song);
+                } else {
+                    console.warn('没有找到匹配的本地歌曲信息');
+                    // 如果没有本地信息，仍然尝试播放
+                    window.player.playSong(data.song);
+                }
+            } else if (data) {
+                console.error('播放歌曲失败:', data.message || '未知错误');
+                
+                // 显示错误提示
+                if (data.song) {
+                    // 如果有歌曲信息但播放失败，仍然尝试显示
+                    // 合并本地存储的歌曲信息
+                    if (window.player.currentSelectedSong && 
+                        data.song.id === window.player.currentSelectedSong.id && 
+                        data.song.platform === window.player.currentSelectedSong.platform) {
+                        
+                        data.song = {
+                            ...window.player.currentSelectedSong,
+                            error: data.song.error || { message: data.message || '未知错误' }
+                        };
+                    }
+                    window.player.playSong(data.song);
+                } else {
+                    alert('播放歌曲失败: ' + (data.message || '未知错误'));
+                }
+            }
+            break;
+            
+        case 'song_search_results':
+            console.log('收到歌曲搜索结果:', data);
+            if (data && data.success && data.songs && data.songs.length > 0) {
+                console.log(`显示${data.songs.length}首歌曲的搜索结果`);
+                window.ui.showSongSearchResults(data.songs);
+            } else {
+                // 显示没有找到歌曲的提示
+                console.warn('没有找到相关歌曲:', data);
+                alert('没有找到相关歌曲');
             }
             break;
             

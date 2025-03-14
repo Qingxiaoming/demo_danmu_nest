@@ -191,6 +191,7 @@ export class NeteaseMusicService {
       duration: Math.floor(item.duration / 1000),
       cover: item.album.picUrl || `https://p2.music.126.net/6y-UleORITEDbvrOLV0Q8A==/5639395138885805.jpg`,
       platform: MusicPlatform.NETEASE,
+      vip: item.fee === 1 || item.privilege?.fee === 1 || item.privilege?.st < 0
     };
   }
 } 
