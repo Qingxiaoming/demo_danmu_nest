@@ -10,8 +10,7 @@ import { BilibiliService } from './bilibili.service';
 import { MusicService } from '../music/music.service';
 import { Song } from '../music/music.types';
 import { Interval } from '@nestjs/schedule';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+import { DanmuConfig } from '../../config/danmu.config';
 
 /**
  * 处理WebSocket错误并返回标准格式
@@ -36,18 +35,7 @@ function handleWsError(error: any) {
  * 默认监听5052端口，支持跨域访问
  */
 @Injectable() 
-@WebSocketGateway(5052, {
-  cors: {
-    origin: '*', // 临时允许所有来源
-    credentials: true,
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Authorization', 'auth_token', 'content-type']
-  },
-  transports: ['websocket', 'polling'],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-})
+@WebSocketGateway(DanmuConfig.websocket.port, DanmuConfig.websocket)
 export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger: EnhancedLoggerService;
   private authenticatedClients = new Set<string>();
@@ -59,12 +47,12 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     reconnectCount: number;
   }>();
   // 认证冷却时间（毫秒）
-  private readonly AUTH_COOLDOWN_MS = 5 * 60 * 1000; // 5分钟
+  private readonly AUTH_COOLDOWN_MS = DanmuConfig.auth.cooldownMs; // 5分钟
   
   // B站弹幕相关
-  private readonly roomId = 23415751; // B站直播间ID，与原始b.js保持一致
+  private readonly roomId = DanmuConfig.bilibili.roomId; // B站直播间ID，与原始b.js保持一致
   private readonly printedDanmuIds = new Set(); // 存储已处理的弹幕ID，避免重复处理
-  private readonly filterKeyword = "花"; // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
+  private readonly filterKeyword = DanmuConfig.bilibili.filterKeyword; // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
   
   @WebSocketServer()
   server: Server;
@@ -84,7 +72,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     this.startUpdateInterval();
     
     // 定期清理断开连接的客户端状态
-    setInterval(() => this.cleanupDisconnectedClients(), 30 * 60 * 1000); // 每30分钟
+    setInterval(() => this.cleanupDisconnectedClients(), DanmuConfig.system.clientCleanupInterval);
   }
   
   /**
@@ -193,10 +181,9 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   // 清理长时间未活动的客户端状态
   private cleanupDisconnectedClients() {
     const now = Date.now();
-    const expireTime = 2 * 60 * 60 * 1000; // 2小时
     
     for (const [clientId, state] of this.clientConnectionState.entries()) {
-      if (now - state.lastAuth > expireTime) {
+      if (now - state.lastAuth > DanmuConfig.system.clientExpireTime) {
         this.clientConnectionState.delete(clientId);
         this.authenticatedClients.delete(clientId);
       }
@@ -239,13 +226,13 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       // 如果是短时间内的重连，且认证状态未变，则不重新记录认证日志
       const isAuthStatusUnchanged = 
         (!!token === existingState.authenticated) && 
-        (now - existingState.lastAuth < this.AUTH_COOLDOWN_MS);
+        (now - existingState.lastAuth < DanmuConfig.auth.cooldownMs);
       
       if (isAuthStatusUnchanged) {
         // 仅在认证状态变化或超过冷却时间时记录日志
         if (token) {
           try {
-            const decoded = jwt.verify(token, JWT_SECRET);
+            const decoded = jwt.verify(token, DanmuConfig.auth.jwtSecret);
             this.authenticatedClients.add(clientId);
             this.logger.log('客户端重连，保持认证状态', { 
               clientId, 
@@ -284,7 +271,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, DanmuConfig.auth.jwtSecret);
       this.authenticatedClients.add(clientId);
       this.logger.log('客户端认证成功', { 
         clientId, 
@@ -559,7 +546,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       const result = await this.danmuService.verifyPassword(password);
       if (result.success) {
         // 生成更长有效期的令牌，减少重新认证次数
-        const token = jwt.sign({ role: 'owner' }, JWT_SECRET, { expiresIn: '12h' });
+        const token = jwt.sign({ role: 'owner' }, DanmuConfig.auth.jwtSecret, { expiresIn: '12h' });
         this.logger.log('密码验证成功，已生成JWT令牌', {
           clientId: client.id,
           tokenExp: new Date(Date.now() + 12 * 3600000).toISOString()
@@ -938,7 +925,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
           stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
-    }, 2000);
+    }, DanmuConfig.system.updateInterval);
   }
 
 }

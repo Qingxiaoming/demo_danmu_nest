@@ -331,3 +331,27 @@ body {
     transition: opacity 0.3s ease;
 }
 
+/* 更新排序按钮样式，与其他按钮保持一致 */
+#sort-btn {
+    background-color: #28a745;
+    color: white;
+    font-size: 16px;
+    z-index: 100;
+}
+
+#sort-btn:hover {
+    background-color: #218838;
+}
+
+/* 无数据时的提示样式 */
+.no-data-message {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-style: italic;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    margin: 20px 0;
+    background-color: #f9f9f9;
+}
+
