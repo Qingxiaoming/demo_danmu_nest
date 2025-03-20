@@ -234,29 +234,21 @@ export class DanmuService {
    */
   async createDanmu(danmuData: any): Promise<Danmu> {
     try {
-      // 如果是更新操作，确保状态设置为waiting
       if (danmuData.uid) {
-        const existingDanmu = await this.danmuModel.findOne({
-          where: { uid: danmuData.uid }
-        });
+        // 使用upsert操作，如果记录存在则更新，不存在则创建
+        const [danmu, created] = await this.danmuModel.upsert(danmuData);
         
-        if (existingDanmu) {
-          // 如果记录已存在，强制设置状态为waiting
-          danmuData.status = 'waiting';
-          this.logger.log(`更新弹幕并重置状态: ${danmuData.uid}`);
+        if (created) {
+          this.logger.log(`创建弹幕成功: ${danmu.uid}`);
+        } else {
+          this.logger.log(`更新弹幕成功: ${danmu.uid}`);
         }
+        return danmu;
       }
-      
-      // 使用upsert操作，如果记录存在则更新，不存在则创建
-      const [danmu, created] = await this.danmuModel.upsert(danmuData);
-      
-      if (created) {
-        this.logger.log(`创建弹幕成功: ${danmu.uid}`);
-      } else {
-        this.logger.log(`更新弹幕成功: ${danmu.uid}`);
+      else {
+        this.logger.log(`消息错误`);
+        return null;
       }
-      
-      return danmu;
     } catch (err) {
       this.logger.error('创建或更新弹幕失败:', err);
       throw E.DANMU_CREATE_FAILED.create('创建或更新弹幕失败', { originalError: err });

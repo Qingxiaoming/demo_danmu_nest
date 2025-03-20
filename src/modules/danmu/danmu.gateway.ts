@@ -111,9 +111,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
                 uid: danmu.uid.toString(), // 直接使用B站弹幕的原始uid
                 nickname: danmu.nickname,
                 text: danmu.text,
-                account: '',
-                password: '',
-                status: 'waiting', // 与b.js保持一致，使用waiting状态
+                status: 'waiting', 
                 createtime: new Date()
               });
             }

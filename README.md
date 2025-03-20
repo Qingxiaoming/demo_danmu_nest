@@ -175,6 +175,6 @@ npm run logs:security
 点歌ipad同步功能（否则做这个点歌姬有何意义
 既然上了ipad其他部分也跟网站同步吧
 修复登录过期后ui不还原的问题
-修复新弹幕会清空账密的问题（danmu.service 230 danmu.gateway 116）
+（danmu.service 230 danmu.gateway 116）
 添加多个关键字（danmu.gateway 116）
 添加增加时下拉框显示当前在线用户功能
