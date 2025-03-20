@@ -52,7 +52,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   // B站弹幕相关
   private readonly roomId = DanmuConfig.bilibili.roomId; // B站直播间ID，与原始b.js保持一致
   private readonly printedDanmuIds = new Set(); // 存储已处理的弹幕ID，避免重复处理
-  private readonly filterKeyword = DanmuConfig.bilibili.filterKeyword; // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
+  private readonly filterKeywords = DanmuConfig.bilibili.filterKeyword; // 需要过滤的关键词数组，弹幕包含任一关键词都会被保存
   
   @WebSocketServer()
   server: Server;
@@ -100,11 +100,13 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
               await this.handleBilibiliSongRequest(danmu);
             }
             
-            // 检查弹幕内容是否包含指定关键词
-            if (danmu.text.includes(this.filterKeyword)) {
-              this.logger.log(`弹幕包含关键词"${this.filterKeyword}"，保存到数据库`, {
+            // 检查弹幕内容是否包含任一关键词
+            const hasKeyword = this.filterKeywords.some(keyword => danmu.text.includes(keyword));
+            if (hasKeyword) {
+              this.logger.log(`弹幕包含关键词，保存到数据库`, {
                 nickname: danmu.nickname,
-                text: danmu.text
+                text: danmu.text,
+                matchedKeywords: this.filterKeywords.filter(keyword => danmu.text.includes(keyword))
               });
               
               await this.danmuService.createDanmu({

@@ -2,7 +2,7 @@ export const DanmuConfig = {
   // B站弹幕相关配置
   bilibili: {
     roomId: 23415751, // B站直播间ID
-    filterKeyword: "排队", // 需要过滤的关键词，只有包含此关键词的弹幕才会被保存
+    filterKeyword: ["排队", "帮帮", "排个队"], // 需要过滤的关键词数组，弹幕包含任一关键词都会被保存
   },
 
   // 认证相关配置
