@@ -4,43 +4,39 @@
  */
 
 // 全局变量
-window.userRole = localStorage.getItem('auth_token') ? 'owner' : 'guest'; // 根据token判断角色
+window.userRole = localStorage.getItem('auth_token') ? 'owner' : 'guest'; // 根据token判断角色：已认证用户(owner)或游客(guest)
 console.log('初始化用户角色:', window.userRole, '本地存储token:', localStorage.getItem('auth_token'));
 
 // 根据用户角色更新UI
 function updateUIByRole() {
-    const addDanmuBtnContainer = document.querySelector('.add-danmu-btn-container');
-    const logoutBtn = document.getElementById('logout-btn');
-    const addDanmuBtn = document.getElementById('add-danmu-btn');
-    const settingsBtn = document.getElementById('settings-btn');
+    const isAuthenticated = window.userRole === 'owner'; // 是否已认证（管理员）
+    const isEyeOpen = window.danmu && window.danmu.showNonWaiting;
     
-    console.log('更新UI，当前用户角色:', window.userRole, '显示非等待状态:', window.danmu && window.danmu.showNonWaiting);
+    console.log('更新UI，当前用户角色:', window.userRole, '显示非等待状态:', isEyeOpen);
     
-    // 显示/隐藏添加弹幕按钮和设置按钮
-    if (window.userRole === 'owner') {
-        // 确保按钮容器始终可见
-        addDanmuBtnContainer.style.display = 'flex';
+    // 使用权限系统统一更新UI元素可见性
+    if (window.permissions) {
+        console.log('开始更新UI可见性，isAuthenticated=', isAuthenticated, 'isEyeOpen=', isEyeOpen);
         
-        // 添加弹幕按钮在登录状态下始终显示，不管是睁眼还是闭眼
-        addDanmuBtn.style.display = 'flex';
+        // 调用权限系统更新UI
+        window.permissions.updateUIVisibility(isAuthenticated, isEyeOpen);
         
-        // 设置按钮和登出按钮只在睁眼状态下显示
-        if (window.danmu && window.danmu.showNonWaiting) {
-            // 登出按钮使用display属性
-            logoutBtn.style.display = 'inline-block';
-            // 设置按钮使用visibility属性保持占位
-            settingsBtn.style.visibility = 'visible';
-        } else {
-            // 在闭眼状态下隐藏登出按钮和设置按钮
-            logoutBtn.style.display = 'none';
-            settingsBtn.style.visibility = 'hidden';
-        }
+        console.log('已通过权限系统更新UI元素可见性');
+        
+        // 手动检查几个关键按钮的状态
+        const loginForm = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const loginPassword = document.getElementById('login-password');
+        
+        console.log('登录表单和按钮实际状态:', {
+            'login-form': loginForm ? loginForm.style.display : 'element不存在',
+            'login-btn': loginBtn ? loginBtn.style.display : 'element不存在',
+            'logout-btn': logoutBtn ? logoutBtn.style.display : 'element不存在',
+            'login-password': loginPassword ? loginPassword.style.display : 'element不存在'
+        });
     } else {
-        // 非管理员用户只显示toggle按钮
-        addDanmuBtnContainer.style.display = 'flex';
-        addDanmuBtn.style.display = 'none';
-        settingsBtn.style.visibility = 'hidden';
-        logoutBtn.style.display = 'none';
+        console.warn('权限模块未加载，无法更新UI可见性');
     }
     
     // 清空登录状态文本
@@ -111,18 +107,6 @@ function initLoginButton() {
                 
                 // 更新UI显示
                 updateUIByRole();
-                
-                // 确保添加弹幕按钮立即显示
-                const addDanmuBtn = document.getElementById('add-danmu-btn');
-                if (addDanmuBtn) {
-                    addDanmuBtn.style.display = 'flex';
-                }
-                
-                // 确保按钮容器可见
-                const btnContainer = document.querySelector('.add-danmu-btn-container');
-                if (btnContainer) {
-                    btnContainer.style.display = 'flex';
-                }
                 
                 // 重新渲染弹幕
                 window.danmu.renderDanmu();

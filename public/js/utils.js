@@ -54,15 +54,15 @@ function updateLoginStatus(text, color) {
     loginStatus.style.color = color;
 }
 
-// 检查是否有权限执行管理员操作
-function checkAdminPermission() {
-    console.log('检查管理员权限，当前用户角色:', window.userRole);
+// 检查是否是已认证用户（管理员）
+function checkAuthenticatedPermission() {
+    console.log('检查已认证用户权限，当前用户角色:', window.userRole);
     if (window.userRole !== 'owner') {
-        console.log('用户没有管理员权限');
+        console.log('用户未认证，无管理员权限');
         showAuthError();
         return false;
     }
-    console.log('用户有管理员权限');
+    console.log('用户已认证，具有管理员权限');
     return true;
 }
 
@@ -146,7 +146,8 @@ window.utils = {
     showConnectionStatus,
     showAuthError,
     updateLoginStatus,
-    checkAdminPermission,
+    checkAuthenticatedPermission,
+    checkAdminPermission: checkAuthenticatedPermission, // 向后兼容
     initDraggableGif,
     loadShortcutSettings,
     saveShortcutSettings,

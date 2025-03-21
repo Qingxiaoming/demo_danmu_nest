@@ -96,6 +96,9 @@ const danmuModule = {
         // 根据用户角色控制右下角按钮的显示/隐藏
         window.auth.updateUIByRole();
         
+        // 确保在弹幕渲染时更新UI元素状态
+        window.permissions.updateUIVisibility(window.userRole === 'owner', this.showNonWaiting);
+        
         // 保存当前选中项的信息
         let selectedUid = null;
         if (this.currentSelectedDanmuItem) {
@@ -139,9 +142,13 @@ const danmuModule = {
         // 创建可排序的数组
         const items = [];
         data.uid.forEach((uid, index) => {
-            if (!this.showNonWaiting && data.status[index] !== 'waiting') {
-                return; // 如果隐藏非等待状态且当前状态不是 'waiting'，则跳过
+            // 使用权限系统判断该状态是否应该显示
+            if (window.permissions && !window.permissions.shouldShowDanmuStatus(data.status[index], this.showNonWaiting)) {
+                return; // 如果权限系统表示该状态不应该显示，则跳过
+            } else if (!window.permissions && !this.showNonWaiting && data.status[index] !== 'waiting') {
+                return; // 如果权限系统未加载，使用传统逻辑
             }
+
             // 如果状态为notdisplay，跳过该项不显示
             if (data.status[index] === 'notdisplay') {
                 return;
@@ -196,7 +203,6 @@ const danmuModule = {
             console.log('排序后的弹幕条目:', items.length, '个, 排序方式:', this.sortByTimeAsc ? '升序' : '降序');
         } catch (error) {
             console.error('排序过程中发生错误:', error);
-            // 发生错误时不改变顺序，确保内容仍然能显示
             console.log('保持原有顺序显示');
         }
         
@@ -385,36 +391,36 @@ const danmuModule = {
         }
     },
 
-    // 切换显示状态并更新眼睛图标
+    // 切换显示全部/仅等待状态的弹幕
     toggleVisibility() {
-        // 切换显示/隐藏状态
+        // 切换状态
         this.showNonWaiting = !this.showNonWaiting;
-        console.log('Toggle visibility:', this.showNonWaiting); // 调试日志
+        console.log(`切换眼睛状态为: ${this.showNonWaiting ? '睁眼' : '闭眼'}`);
         
-        // 更新眼睛图标
-        const toggleBtn = document.getElementById('toggle-btn');
-        if (!toggleBtn) {
-            console.warn('Toggle button not found, skipping icon update');
-            return;
+        // 修改按钮图标和提示
+        const toggleButton = document.getElementById('toggle-btn');
+        if (toggleButton) {
+            toggleButton.innerHTML = this.showNonWaiting 
+                ? '<i class="fas fa-eye"></i>' 
+                : '<i class="fas fa-eye-slash"></i>';
+            toggleButton.title = this.showNonWaiting ? '当前显示全部状态，点击仅显示等待状态' : '当前仅显示等待状态，点击显示全部状态';
+        }
+
+        // 显示排序按钮
+        const sortButton = document.getElementById('sort-btn');
+        if (sortButton) {
+            sortButton.style.display = this.showNonWaiting ? 'inline-block' : 'none';
         }
         
-        // 创建新的图标元素
-        const icon = document.createElement('i');
-        icon.className = this.showNonWaiting ? 'fas fa-eye' : 'fas fa-eye-slash';
-        toggleBtn.innerHTML = '';
-        toggleBtn.appendChild(icon);
-        
-        // 更新按钮提示文本
-        toggleBtn.title = this.showNonWaiting ? '当前显示全部状态，点击仅显示等待状态' : '当前仅显示等待状态，点击显示全部状态';
-        
-        // 切换"排序"按钮的显示状态
-        const sortBtn = document.getElementById('sort-btn');
-        if (sortBtn) {
-            sortBtn.style.display = this.showNonWaiting ? 'block' : 'none';
+        // 使用权限系统更新基于眼睛状态的UI元素
+        if (window.permissions) {
+            console.log('使用权限系统更新UI状态，眼睛状态切换为:', this.showNonWaiting ? '睁眼' : '闭眼');
+            const isAuthenticated = window.userRole === 'owner';
+            window.permissions.updateUIVisibility(isAuthenticated, this.showNonWaiting);
         }
         
         // 重新渲染弹幕列表
-        this.renderDanmu();
+        this.renderDanmu(this.currentDanmuData);
     },
     
     // 切换排序方式
@@ -468,86 +474,77 @@ const danmuModule = {
         sortBtn.title = this.sortByTimeAsc ? '当前按时间升序排列，点击改为降序' : '当前按时间降序排列，点击改为升序';
     },
 
-    // 初始化弹幕模块和事件监听
+    // 初始化弹幕模块
     initDanmu() {
         console.log('初始化弹幕模块');
         
-        // 初始化添加弹幕按钮事件
-        const addDanmuBtn = document.getElementById('add-danmu-btn');
-        if (addDanmuBtn) {
-            addDanmuBtn.addEventListener('click', () => {
-                if (window.utils.checkAdminPermission()) {
-                    window.ui.showAddDanmuDialog();
+        // 初始化弹幕容器点击事件
+        const danmuContainer = document.getElementById('danmu-container');
+        danmuContainer.addEventListener('click', (e) => {
+            if (e.target === danmuContainer) {
+                // 点击容器空白处取消选中
+                this.currentSelectedDanmuItem = null;
+                document.querySelectorAll('.danmu-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+            }
+        });
+        
+        // 初始化排序按钮
+        const initSortButton = () => {
+            const sortBtn = document.getElementById('sort-btn');
+            if (sortBtn) {
+                // 更新排序按钮图标
+                this.updateSortButtonIcon();
+                
+                // 绑定点击事件
+                sortBtn.addEventListener('click', () => this.toggleSortOrder());
+                
+                // 根据权限系统设置初始显示状态
+                if (window.permissions) {
+                    const isAuthenticated = window.userRole === 'owner'; // 已认证用户（管理员）
+                    const shouldShow = window.permissions.shouldShowElement('sort-btn', isAuthenticated, this.showNonWaiting);
+                    sortBtn.style.display = shouldShow ? 'flex' : 'none';
+                } else {
+                    // 如果权限系统未加载，使用传统逻辑
+                    sortBtn.style.display = this.showNonWaiting ? 'flex' : 'none';
                 }
-            });
-        }
-        
-        // 初始化设置按钮事件
-        const settingsBtn = document.getElementById('settings-btn');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                if (window.utils.checkAdminPermission()) {
-                    window.ui.showSettingsDialog();
-                }
-            });
-        }
-        
-        // 初始化切换显示按钮事件
-        const toggleBtn = document.getElementById('toggle-btn');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.toggleVisibility();
-            });
-        }
-        
-        // 初始化排序按钮事件
-        const sortBtn = document.getElementById('sort-btn');
-        if (sortBtn) {
-            sortBtn.addEventListener('click', () => {
-                this.toggleSortOrder();
-            });
-            // 默认隐藏排序按钮，只在显示全部状态时可见
-            sortBtn.style.display = this.showNonWaiting ? 'block' : 'none';
-        }
-        
-        // 初始化眼睛图标
+            }
+        };
+        // 初始化切换按钮
         const initToggleButton = () => {
             const toggleBtn = document.getElementById('toggle-btn');
-            if (!toggleBtn) return;
-            
-            // 设置初始图标
-            toggleBtn.innerHTML = '';
-            toggleBtn.appendChild(createEyeIcon(this.showNonWaiting));
-            
-            // 更新提示文本
-            toggleBtn.title = this.showNonWaiting ? '当前显示全部状态，点击仅显示等待状态' : '当前仅显示等待状态，点击显示全部状态';
-            
-            // 创建眼睛图标的辅助函数
-            function createEyeIcon(isOpen) {
-                const icon = document.createElement('i');
-                icon.className = isOpen ? 'fas fa-eye' : 'fas fa-eye-slash';
-                return icon;
+            if (toggleBtn) {
+                toggleBtn.innerHTML = this.showNonWaiting 
+                    ? '<i class="fas fa-eye"></i>' 
+                    : '<i class="fas fa-eye-slash"></i>';
+                toggleBtn.title = this.showNonWaiting
+                    ? '当前显示全部状态，点击只显示等待状态'
+                    : '当前仅显示等待状态，点击显示全部状态';
+                toggleBtn.addEventListener('click', () => this.toggleVisibility());
+            }
+        };
+        // 初始化添加弹幕按钮
+        const initAddButton = () => {
+            const addBtn = document.getElementById('add-danmu-btn');
+            if (addBtn) {
+                addBtn.addEventListener('click', () => window.ui.showAddDanmuDialog());
             }
         };
         
-        // 初始化排序图标
-        const initSortButton = () => {
-            const sortBtn = document.getElementById('sort-btn');
-            if (!sortBtn) return;
+        // 显示弹幕操作按钮容器
+            const btnContainer = document.querySelector('.add-danmu-btn-container');
+            if (btnContainer) {
+                btnContainer.style.display = 'flex';
+            }
             
-            // 设置初始图标
-            sortBtn.innerHTML = '';
-            const icon = document.createElement('i');
-            icon.className = this.sortByTimeAsc ? 'fas fa-sort-amount-down-alt' : 'fas fa-sort-amount-down';
-            sortBtn.appendChild(icon);
-            
-            // 更新提示文本
-            sortBtn.title = this.sortByTimeAsc ? '当前按时间升序排列，点击改为降序' : '当前按时间降序排列，点击改为升序';
-        };
-        
-        // 执行初始化函数
-        initToggleButton();
+        // 初始化所有按钮
         initSortButton();
+        initToggleButton();
+        initAddButton();
+        
+        // 使用权限系统更新初始UI状态
+        window.auth.updateUIByRole();
     }
 };
 

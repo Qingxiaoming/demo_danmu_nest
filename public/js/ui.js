@@ -5,7 +5,7 @@
 
 // 显示添加弹幕对话框
 function showAddDanmuDialog() {
-    if (!window.utils.checkAdminPermission()) return;
+    if (!window.utils.checkAuthenticatedPermission()) return;
     
     // 设置对话框显示状态为true
     window.danmu.isShowingDialog = true;
@@ -107,8 +107,8 @@ function showAddDanmuDialog() {
 // 显示设置菜单
 function showSettingsDialog() {
     console.log('显示设置菜单函数被调用');
-    if (!window.utils.checkAdminPermission()) {
-        console.log('没有管理员权限，返回');
+    if (!window.utils.checkAuthenticatedPermission()) {
+        console.log('未认证用户，返回');
         return;
     }
     
@@ -906,13 +906,18 @@ function showSongSearchResults(songs) {
 
 // 初始化UI事件
 function initUIEvents() {
-    // 设置按钮点击事件
-    document.getElementById('settings-btn').onclick = (e) => {
-        console.log('设置按钮被点击');
-        e.stopPropagation(); // 阻止事件冒泡
-        showSettingsDialog();
-    };
+    console.log('初始化UI事件');
     
+    // 初始化设置按钮
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            if (window.utils.checkAuthenticatedPermission()) {
+                showSettingsDialog();
+            }
+        });
+    }
+
     // 添加弹幕按钮点击事件
     document.getElementById('add-danmu-btn').onclick = () => {
         showAddDanmuDialog();
