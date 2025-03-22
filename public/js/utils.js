@@ -108,37 +108,14 @@ function initDraggableGif() {
 
 // 读取本地存储中的快捷键设置
 function loadShortcutSettings() {
-    const settings = localStorage.getItem('shortcutSettings');
+    const settings = localStorage.getItem('shortcut_settings');
     return settings ? JSON.parse(settings) : {};
 }
 
-// 保存快捷键设置到本地存储
+// 保存快捷键设置
 function saveShortcutSettings(settings) {
-    console.log('保存快捷键设置:', settings); // 调试输出
-    localStorage.setItem('shortcutSettings', JSON.stringify(settings));
-}
-
-// 初始化默认快捷键设置
-function initDefaultShortcuts() {
-    const currentSettings = loadShortcutSettings();
-    
-    // 如果没有设置或设置不完整，则设置默认值
-    const defaultSettings = {
-        delete: currentSettings.delete || 'D',
-        complete: currentSettings.complete || 'C',
-        edit: currentSettings.edit || 'E',
-        acps: currentSettings.acps || 'A',
-        add: currentSettings.add || 'Ctrl+A'
-    };
-    
-    // 只有在设置不完整时才保存默认设置
-    if (!currentSettings.delete || !currentSettings.complete || 
-        !currentSettings.edit || !currentSettings.acps || !currentSettings.add) {
-        saveShortcutSettings(defaultSettings);
-        console.log('已初始化默认快捷键设置:', defaultSettings);
-    }
-    
-    return defaultSettings;
+    localStorage.setItem('shortcut_settings', JSON.stringify(settings));
+    return settings;
 }
 
 // 导出工具函数
@@ -147,9 +124,7 @@ window.utils = {
     showAuthError,
     updateLoginStatus,
     checkAuthenticatedPermission,
-    checkAdminPermission: checkAuthenticatedPermission, // 向后兼容
     initDraggableGif,
     loadShortcutSettings,
-    saveShortcutSettings,
-    initDefaultShortcuts
+    saveShortcutSettings
 }; 

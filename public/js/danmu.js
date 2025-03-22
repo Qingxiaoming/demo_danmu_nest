@@ -395,7 +395,6 @@ const danmuModule = {
     toggleVisibility() {
         // 切换状态
         this.showNonWaiting = !this.showNonWaiting;
-        console.log(`切换眼睛状态为: ${this.showNonWaiting ? '睁眼' : '闭眼'}`);
         
         // 修改按钮图标和提示
         const toggleButton = document.getElementById('toggle-btn');
