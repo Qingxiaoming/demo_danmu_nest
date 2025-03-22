@@ -157,7 +157,8 @@ function initSocket() {
 function setupSocketEvents() {
     // 定义所有需要监听的事件
     const socketEvents = [
-        'update', 'get_acps', 'add_danmu', 'play_song', 'song_search_results'
+        'update', 'get_acps', 'add_danmu', 'play_song', 'song_search_results',
+        'pending', 'resume'
     ];
     // 为每个事件添加监听器
     socketEvents.forEach(eventName => {
@@ -191,6 +192,24 @@ function handleSocketEvent(eventName, data) {
                 console.log(data.isUpdate ? '弹幕更新成功' : '弹幕添加成功');
             } else if (data) {
                 console.error('弹幕操作失败:', data.message);
+            }
+            break;
+            
+        case 'pending':
+            console.log('弹幕挂起操作结果:', data);
+            if (data && data.success) {
+                console.log('弹幕已挂起');
+            } else if (data) {
+                console.error('弹幕挂起失败:', data.message);
+            }
+            break;
+            
+        case 'resume':
+            console.log('弹幕恢复操作结果:', data);
+            if (data && data.success) {
+                console.log('弹幕已恢复');
+            } else if (data) {
+                console.error('弹幕恢复失败:', data.message);
             }
             break;
             

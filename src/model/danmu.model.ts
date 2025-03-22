@@ -25,4 +25,7 @@ export class Danmu extends Model<Danmu> {
 
   @Column(DataType.DATE)
   createtime: string;
+
+  @Column(DataType.DATE)
+  pendingTime: string;
 }

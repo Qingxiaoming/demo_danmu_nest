@@ -51,11 +51,43 @@ body {
 
 .danmu-item .status {
     font-weight: bold;
-    color: blue;
     font-style: italic;
     position: absolute;
     top: 10px;
     right: 10px;
+}
+
+/* 基于状态的颜色 */
+.danmu-item[data-status="waiting"] .status {
+    color: blue;
+}
+
+.danmu-item[data-status="pending"] .status {
+    color: #ff6200; /* 黄色/橙色 */
+}
+
+.danmu-item[data-status="completed"] .status {
+    color: #28a745; /* 绿色 */
+}
+
+.danmu-item[data-status="deleted"] .status {
+    color: #6c757d; /* 灰色 */
+}
+
+.danmu-item[data-status="waiting"] {
+    border-left: 3px solid #002aff;
+}
+
+.danmu-item[data-status="pending"] {
+    border-left: 3px solid #ffa500;
+}
+
+.danmu-item[data-status="completed"] {
+    border-left: 3px solid #28a745;
+}
+
+.danmu-item[data-status="deleted"] {
+    border-left: 3px solid #6c757d;
 }
 
 .danmu-item .createtime {
@@ -354,4 +386,3 @@ body {
     margin: 20px 0;
     background-color: #f9f9f9;
 }
-

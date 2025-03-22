@@ -1048,4 +1048,108 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     }
   }
 
+  /**
+   * 处理弹幕挂起事件
+   */
+  @SubscribeMessage('pending')
+  async handlePending(client: Socket, payload: any) {
+    try {
+      const index = payload?.index;
+      
+      if (!index) {
+        this.logger.warn('挂起请求缺少必要参数', { 
+          clientId: client.id, 
+          payload,
+          errorCode: E.INVALID_PARAMS.error
+        });
+        throw E.INVALID_PARAMS;
+      }
+      
+      this.logger.log('处理挂起请求', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的挂起操作', { 
+          clientId: client.id, 
+          danmuId: index,
+          errorCode: E.AUTH_FAILED.error
+        });
+        throw E.AUTH_FAILED;
+      }
+
+      const result = await this.danmuService.updateStatus(index, 'pending');
+      this.server.emit('pending', result);
+      this.logger.log('挂起操作成功', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      return { success: true };
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        danmuId: payload?.index,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      this.logger.error('挂起操作失败', errorInfo);
+      return handleWsError(error);
+    }
+  }
+  
+  /**
+   * 处理弹幕恢复事件（从挂起状态）
+   */
+  @SubscribeMessage('resume')
+  async handleResume(client: Socket, payload: any) {
+    try {
+      const index = payload?.index;
+      
+      if (!index) {
+        this.logger.warn('恢复请求缺少必要参数', { 
+          clientId: client.id, 
+          payload,
+          errorCode: E.INVALID_PARAMS.error
+        });
+        throw E.INVALID_PARAMS;
+      }
+      
+      this.logger.log('处理恢复请求', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的恢复操作', { 
+          clientId: client.id, 
+          danmuId: index,
+          errorCode: E.AUTH_FAILED.error
+        });
+        throw E.AUTH_FAILED;
+      }
+
+      const result = await this.danmuService.updateStatus(index, 'waiting');
+      this.server.emit('resume', result);
+      this.logger.log('恢复操作成功', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      return { success: true };
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        danmuId: payload?.index,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      this.logger.error('恢复操作失败', errorInfo);
+      return handleWsError(error);
+    }
+  }
+
 }

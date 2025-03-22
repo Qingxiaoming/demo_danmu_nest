@@ -144,7 +144,7 @@ function formatLogLine(line, isJson) {
             case '弹幕': color = '32'; break; // 绿色
             default: color = '37'; break;     // 白色
           }
-          if(operationType === '弹幕'){
+          if(operationType === '弹幕' || operationType === '编辑'){
             coloredOutput = `\x1b[${color}m【${operationType}】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text || ''}\x1b[0m`;
           
           }

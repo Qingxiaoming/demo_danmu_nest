@@ -30,10 +30,30 @@ export class DanmuService {
         E.DANMU_NOT_FOUND.throw(`未找到ID为${uid}的弹幕`);
       }
       
-      await danmu.update({ status });
+      // 如果状态变为pending，记录挂起时间
+      if (status === 'pending') {
+        await danmu.update({ 
+          status,
+          pendingTime: new Date().toISOString()
+        });
+      } 
+      // 如果从pending恢复到waiting，清除挂起时间
+      else if (status === 'waiting' && danmu.status === 'pending') {
+        await danmu.update({ 
+          status,
+          pendingTime: null
+        });
+      }
+      // 其他状态变更
+      else {
+        await danmu.update({ status });
+      }
       
       // 增加带有操作类型和昵称的日志记录，格式与保存弹幕一致
-      const operationText = status === 'deleted' ? '删除' : status === 'completed' ? '完成' : status;
+      const operationText = status === 'deleted' ? '删除' : 
+                           status === 'completed' ? '完成' : 
+                           status === 'pending' ? '挂起' : 
+                           status === 'waiting' && danmu.status === 'pending' ? '恢复' : status;
       this.logger.log(`弹幕${operationText}操作成功`, { 
         operation: operationText,
         nickname: danmu.nickname,
@@ -48,9 +68,14 @@ export class DanmuService {
           status
         }
       };
-    } catch (error) {
-      this.logger.error('更新弹幕状态失败', { uid, status, error });
-      throw error;
+    } catch (err) {
+      // 处理错误情况
+      this.logger.error(`更新弹幕状态失败: ${err.message}`, {
+        uid,
+        targetStatus: status,
+        error: err
+      });
+      throw err;
     }
   }
 
@@ -226,31 +251,50 @@ export class DanmuService {
    */
   async getAllDanmu() {
     try {
+      // 查询数据库中的所有弹幕
       const danmus = await this.danmuModel.findAll({
-        order: [['createtime', 'DESC']]
+        raw: true, // 返回纯JSON对象而不是Sequelize模型实例
+        order: [['createtime', 'DESC']] // 按创建时间倒序
       });
       
-      // 转换为前端需要的格式
-      const result = {
-        uid: [],
-        nickname: [],
-        text: [],
-        status: [],
-        createtime: []
+      // 从查询结果提取数据并格式化
+      const uid = [];
+      const status = [];
+      const nickname = [];
+      const text = [];
+      const account = [];
+      const password = [];
+      const createtime = [];
+      const pendingTime = []; // 新增挂起时间字段
+      
+      // 遍历结果格式化数据 
+      danmus.forEach(danmu => { 
+        uid.push(danmu.uid);
+        status.push(danmu.status);
+        nickname.push(danmu.nickname);
+        text.push(danmu.text);
+        account.push(danmu.account || '');
+        password.push(danmu.password || '');
+        createtime.push(danmu.createtime);
+        pendingTime.push(danmu.pendingTime || null); // 添加挂起时间
+      });
+      
+      this.logger.debug(`获取到 ${danmus.length} 条弹幕数据`);
+      
+      // 返回格式化的数据
+      return {
+        uid,
+        status,
+        nickname,
+        text,
+        account,
+        password,
+        createtime,
+        pendingTime // 返回挂起时间数组
       };
-      
-      danmus.forEach(danmu => {
-        result.uid.push(danmu.uid);
-        result.nickname.push(danmu.nickname);
-        result.text.push(danmu.text);
-        result.status.push(danmu.status);
-        result.createtime.push(danmu.createtime);
-      });
-      
-      return result;
     } catch (error) {
-      this.logger.error('获取所有弹幕失败', { error });
-      throw E.SQL_QUERY_FAILED.create('获取弹幕数据失败', { originalError: error });
+      this.logger.error('获取弹幕数据失败', { error });
+      throw error;
     }
   }
 

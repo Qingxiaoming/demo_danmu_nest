@@ -90,6 +90,12 @@ const danmuModule = {
             return;
         }
         
+        // 检查pendingTime数组，如果不存在则初始化为空数组
+        if (!Array.isArray(data.pendingTime) || data.pendingTime.length !== data.uid.length) {
+            console.warn('pendingTime数组不完整，将初始化为空数组');
+            data.pendingTime = new Array(data.uid.length).fill(null);
+        }
+        
         // 如果没有数据可用，直接返回
         if (!data || !data.uid) return;
         
@@ -131,6 +137,12 @@ const danmuModule = {
                     break;
                 case 'get_acps':
                     window.socket.emit('get_acps', { index: uid });
+                    break;
+                case 'pending':
+                    window.socket.emit('pending', { index: uid });
+                    break;
+                case 'resume':
+                    window.socket.emit('resume', { index: uid });
                     break;
                 default:
                     break;
@@ -225,6 +237,10 @@ const danmuModule = {
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'danmu-item';
+            // 添加data-status属性，方便CSS样式
+            itemDiv.setAttribute('data-status', data.status[index]);
+            // 添加data-uid属性
+            itemDiv.setAttribute('data-uid', uid);
             // 添加点击事件处理
             itemDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -268,9 +284,6 @@ const danmuModule = {
                 this.handleDanmuItemSelection(itemDiv);
             });
             
-            // 存储uid属性，用于后续恢复选中状态
-            itemDiv.setAttribute('data-uid', uid);
-
             // 昵称
             const nickname = document.createElement('span');
             nickname.textContent = `${data.nickname[index]}: `;
@@ -286,6 +299,26 @@ const danmuModule = {
             status.textContent = `      ${data.status[index]}`;
             status.className = 'status';
 
+            // 如果状态是pending(挂起)，显示挂起时间
+            if (data.status[index] === 'pending' && data.pendingTime && data.pendingTime[index]) {
+                try {
+                    const pendingDate = new Date(data.pendingTime[index]);
+                    const now = new Date();
+                    // 计算已挂起的时间（分钟）
+                    const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
+                    
+                    // 创建挂起时间显示元素
+                    const pendingTimeElem = document.createElement('span');
+                    pendingTimeElem.className = 'pending-time';
+                    pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
+                    
+                    // 添加到状态元素后面
+                    status.appendChild(pendingTimeElem);
+                } catch (error) {
+                    console.error('计算挂起时间出错:', error);
+                }
+            }
+
             // 创建时间
             const createtime = document.createElement('span');
             // 格式化时间显示
@@ -299,7 +332,7 @@ const danmuModule = {
                         const day = String(date.getDate()).padStart(2, '0');
                         const hours = String(date.getHours()).padStart(2, '0');
                         const minutes = String(date.getMinutes()).padStart(2, '0');
-                        createtime.textContent = `----${month}-${day} ${hours}:${minutes}`;
+                        createtime.textContent = `----${month}-${day}T${hours}:${minutes}`;
                     } else {
                         createtime.textContent = `----未知时间`;
                         console.warn('无效的日期对象:', timeStr);
@@ -319,6 +352,16 @@ const danmuModule = {
             if (window.userRole === 'owner') {
                 const actions = document.createElement('div');
                 actions.className = 'actions';
+
+                // 挂起/恢复按钮
+                const pendingBtn = document.createElement('button');
+                if (data.status[index] === 'pending') {
+                    pendingBtn.textContent = '恢复';
+                    pendingBtn.onclick = () => handleDanmuAction('resume', uid);
+                } else {
+                    pendingBtn.textContent = '挂起';
+                    pendingBtn.onclick = () => handleDanmuAction('pending', uid);
+                }
 
                 // 删除按钮
                 const deleteBtn = document.createElement('button');
@@ -340,11 +383,14 @@ const danmuModule = {
                 ac_ps_Btn.textContent = '账密';
                 ac_ps_Btn.onclick = () => handleDanmuAction('get_acps', uid);
                 
+
+                actions.appendChild(pendingBtn);
+                itemDiv.appendChild(actions);
                 actions.appendChild(deleteBtn);
                 actions.appendChild(completedBtn);
                 actions.appendChild(editBtn);
                 actions.appendChild(ac_ps_Btn);
-                itemDiv.appendChild(actions);
+
             }
 
             itemDiv.appendChild(nickname);
