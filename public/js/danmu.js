@@ -524,13 +524,6 @@ const danmuModule = {
                 toggleBtn.addEventListener('click', () => this.toggleVisibility());
             }
         };
-        // 初始化添加弹幕按钮
-        const initAddButton = () => {
-            const addBtn = document.getElementById('add-danmu-btn');
-            if (addBtn) {
-                addBtn.addEventListener('click', () => window.ui.showAddDanmuDialog());
-            }
-        };
         
         // 显示弹幕操作按钮容器
             const btnContainer = document.querySelector('.add-danmu-btn-container');
@@ -541,7 +534,6 @@ const danmuModule = {
         // 初始化所有按钮
         initSortButton();
         initToggleButton();
-        initAddButton();
         
         // 使用权限系统更新初始UI状态
         window.auth.updateUIByRole();

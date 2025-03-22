@@ -5,6 +5,7 @@
 
 // 全局变量
 window.isConnected = false; // 添加连接状态标志
+window.hasValidatedTokenOnce = false; // 添加令牌验证标志
 
 // 初始化Socket连接
 function initSocket() {
@@ -63,9 +64,39 @@ function initSocket() {
     
     // 连接状态显示
     window.socket.on('connect', () => {
-        console.log('连接成功');
+        console.log('连接成功，时间：', new Date().toLocaleString());
         window.isConnected = true;
         window.utils.showConnectionStatus(true);
+        
+        // 输出连接信息和认证状态
+        console.log('Socket连接ID:', window.socket.id);
+        console.log('当前用户角色:', window.userRole);
+        console.log('localStorage中的令牌:', localStorage.getItem('auth_token') ? '存在' : '不存在');
+        console.log('Socket认证信息:', window.socket.auth);
+        
+        // 检查是否有保存的令牌，如果有则在连接后验证其有效性
+        // 但只在页面加载后第一次连接时验证，避免重连时反复验证
+        const savedToken = localStorage.getItem('auth_token');
+        if (savedToken && window.auth && typeof window.auth.checkTokenValidity === 'function') {
+            // 检查是否是首次加载后的连接
+            if (!window.hasValidatedTokenOnce) {
+                console.log('首次连接已建立，检查保存的令牌有效性');
+                setTimeout(() => {
+                    window.auth.checkTokenValidity().then(isValid => {
+                        window.hasValidatedTokenOnce = true;
+                        console.log('首次令牌验证完成，结果:', isValid ? '有效' : '无效', '时间:', new Date().toLocaleString());
+                    });
+                }, 1000); // 延迟1秒，确保连接稳定
+            } else {
+                console.log('重连成功，跳过令牌验证，直接恢复角色状态');
+                // 如果是重连，假定令牌仍然有效，直接恢复角色
+                window.userRole = 'owner';
+                if (window.auth) {
+                    window.auth.updateUIByRole();
+                    console.log('重连后恢复角色状态为:', window.userRole, '时间:', new Date().toLocaleString());
+                }
+            }
+        }
     });
     
     // 设置Socket事件监听

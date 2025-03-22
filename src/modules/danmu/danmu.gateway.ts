@@ -545,11 +545,30 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       
       const result = await this.danmuService.verifyPassword(password);
       if (result.success) {
-        // 生成更长有效期的令牌，减少重新认证次数
-        const token = jwt.sign({ role: 'owner' }, DanmuConfig.auth.jwtSecret, { expiresIn: '12h' });
+        // 使用DanmuConfig中定义的过期时间
+        const expiresIn = DanmuConfig.auth.jwtExpiresIn || '12h';
+        
+        // 使用 @ts-ignore 跳过类型检查
+        // @ts-ignore
+        const token = jwt.sign(
+          { role: 'owner' },
+          String(DanmuConfig.auth.jwtSecret), 
+          { expiresIn: expiresIn }
+        );
+        
+        // 解码令牌以获取确切的过期时间
+        const decoded = jwt.decode(token) as any;
+        const expireDate = new Date(decoded.exp * 1000);
+        
         this.logger.log('密码验证成功，已生成JWT令牌', {
           clientId: client.id,
-          tokenExp: new Date(Date.now() + 12 * 3600000).toISOString()
+          tokenExp: expireDate.toISOString(),
+          expiresIn: expiresIn,
+          decodedToken: {
+            role: decoded.role,
+            iat: new Date(decoded.iat * 1000).toISOString(),
+            exp: expireDate.toISOString()
+          }
         });
         
         // 立即将客户端添加到已认证集合中
@@ -568,6 +587,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
         const response = {
           success: true,
           token: token,
+          expires: expireDate.toISOString(), // 添加过期时间信息
           message: '验证成功'
         };
         
@@ -926,6 +946,106 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
         });
       }
     }, DanmuConfig.system.updateInterval);
+  }
+
+  /**
+   * 验证JWT令牌是否有效
+   * @param client 客户端Socket连接
+   * @param payload 包含token字段的负载
+   * @returns {Promise<{valid: boolean}>} 验证结果
+   * @emits check_token 向请求的客户端发送验证结果
+   */
+  @SubscribeMessage('check_token')
+  async handleCheckToken(client: Socket, payload: any): Promise<{valid: boolean}> {
+    try {
+      const token = payload?.token;
+      
+      if (!token) {
+        this.logger.warn('令牌验证请求缺少必要参数', { 
+          clientId: client.id
+        });
+        
+        const response = { valid: false, message: '缺少令牌参数' };
+        client.emit('check_token', response);
+        return response;
+      }
+      
+      try {
+        // 先解码以获取详细信息，不验证签名
+        const decodedNoVerify = jwt.decode(token) as any;
+        
+        // 验证令牌
+        const decoded = jwt.verify(token, DanmuConfig.auth.jwtSecret) as any;
+        
+        // 计算剩余有效期
+        const now = Math.floor(Date.now() / 1000);
+        const remainingTime = decoded.exp - now;
+        const remainingMinutes = Math.floor(remainingTime / 60);
+        
+        this.logger.log('令牌验证成功', { 
+          clientId: client.id, 
+          role: decoded.role,
+          iat: new Date(decoded.iat * 1000).toISOString(),
+          exp: new Date(decoded.exp * 1000).toISOString(),
+          remainingMinutes: remainingMinutes
+        });
+        
+        // 确保客户端在已认证集合中
+        this.authenticatedClients.add(client.id);
+        
+        // 更新客户端连接状态
+        const nowMs = Date.now();
+        this.clientConnectionState.set(client.id, {
+          ip: client.handshake.address,
+          authenticated: true,
+          lastAuth: nowMs,
+          reconnectCount: this.clientConnectionState.get(client.id)?.reconnectCount || 0
+        });
+        
+        const response = { 
+          valid: true,
+          role: decoded.role,
+          expiresAt: new Date(decoded.exp * 1000).toISOString(),
+          remainingMinutes: remainingMinutes
+        };
+        client.emit('check_token', response);
+        return response;
+        
+      } catch (err) {
+        // 令牌无效或过期
+        this.logger.warn('令牌验证失败', { 
+          clientId: client.id, 
+          error: err.message 
+        });
+        
+        // 从已认证集合中移除客户端
+        this.authenticatedClients.delete(client.id);
+        
+        // 更新客户端连接状态
+        const now = Date.now();
+        this.clientConnectionState.set(client.id, {
+          ip: client.handshake.address,
+          authenticated: false,
+          lastAuth: now,
+          reconnectCount: this.clientConnectionState.get(client.id)?.reconnectCount || 0
+        });
+        
+        const response = { valid: false, message: err.message };
+        client.emit('check_token', response);
+        return response;
+      }
+      
+    } catch (error) {
+      this.logger.error('处理令牌验证请求时发生错误', {
+        clientId: client.id,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+      
+      const response = { valid: false, message: '服务器内部错误' };
+      client.emit('check_token', response);
+      return response;
+    }
   }
 
 }
