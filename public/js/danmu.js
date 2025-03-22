@@ -288,10 +288,26 @@ const danmuModule = {
 
             // 创建时间
             const createtime = document.createElement('span');
-            // 添加安全检查，确保data.createtime[index]存在并且可以进行slice操作
+            // 格式化时间显示
             const timeStr = data.createtime[index];
-            if (timeStr && typeof timeStr === 'string' && timeStr.length >= 16) {
-                createtime.textContent = `----${timeStr.slice(5, 16)}`;
+            if (timeStr && typeof timeStr === 'string') {
+                try {
+                    const date = new Date(timeStr);
+                    if (!isNaN(date.getTime())) {
+                        // 严格按照图片中所示的格式：MM-DDTHH:MM
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        createtime.textContent = `----${month}-${day} ${hours}:${minutes}`;
+                    } else {
+                        createtime.textContent = `----未知时间`;
+                        console.warn('无效的日期对象:', timeStr);
+                    }
+                } catch (error) {
+                    createtime.textContent = `----未知时间`;
+                    console.error('格式化时间出错:', error);
+                }
             } else {
                 // 如果时间字符串异常，提供一个默认值
                 createtime.textContent = `----未知时间`;
