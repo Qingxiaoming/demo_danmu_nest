@@ -23,14 +23,7 @@ const danmuModule = {
         }
         
         try {
-            // 尝试直接转换
-            const date = new Date(timeStr);
-            if (!isNaN(date.getTime())) {
-                return date;
-            }
-            
-            // 如果直接转换失败，尝试解析几种常见格式
-            // 格式1: "YYYY-MM-DD HH:MM:SS"
+            // 尝试解析标准格式: "YYYY-MM-DD HH:MM:SS"
             if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(timeStr)) {
                 const [datePart, timePart] = timeStr.split(' ');
                 const [year, month, day] = datePart.split('-').map(Number);
@@ -38,20 +31,10 @@ const danmuModule = {
                 return new Date(year, month - 1, day, hour, minute, second);
             }
             
-            // 格式2: "MM-DD HH:MM"
-            if (/^\d{2}-\d{2} \d{2}:\d{2}$/.test(timeStr)) {
-                const currentYear = new Date().getFullYear();
-                const [datePart, timePart] = timeStr.split(' ');
-                const [month, day] = datePart.split('-').map(Number);
-                const [hour, minute] = timePart.split(':').map(Number);
-                return new Date(currentYear, month - 1, day, hour, minute);
-            }
-            
-            // 格式3: "MM-DD"
-            if (/^\d{2}-\d{2}$/.test(timeStr)) {
-                const currentYear = new Date().getFullYear();
-                const [month, day] = timeStr.split('-').map(Number);
-                return new Date(currentYear, month - 1, day);
+            // 尝试常规JS日期解析（后备方案）
+            const date = new Date(timeStr);
+            if (!isNaN(date.getTime())) {
+                return date;
             }
             
             // 如果所有格式都不匹配，返回当前时间
@@ -302,18 +285,40 @@ const danmuModule = {
             // 如果状态是pending(挂起)，显示挂起时间
             if (data.status[index] === 'pending' && data.pendingTime && data.pendingTime[index]) {
                 try {
-                    const pendingDate = new Date(data.pendingTime[index]);
-                    const now = new Date();
-                    // 计算已挂起的时间（分钟）
-                    const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
-                    
-                    // 创建挂起时间显示元素
-                    const pendingTimeElem = document.createElement('span');
-                    pendingTimeElem.className = 'pending-time';
-                    pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
-                    
-                    // 添加到状态元素后面
-                    status.appendChild(pendingTimeElem);
+                    // 尝试直接使用挂起时间字符串格式化显示
+                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(data.pendingTime[index])) {
+                        // 解析格式化的字符串为日期对象，计算挂起时间
+                        const [datePart, timePart] = data.pendingTime[index].split(' ');
+                        const [year, month, day] = datePart.split('-').map(Number);
+                        const [hour, minute, second] = timePart.split(':').map(Number);
+                        
+                        const pendingDate = new Date(year, month - 1, day, hour, minute, second);
+                        const now = new Date();
+                        
+                        // 计算已挂起的时间（分钟）
+                        const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
+                        
+                        // 创建挂起时间显示元素
+                        const pendingTimeElem = document.createElement('span');
+                        pendingTimeElem.className = 'pending-time';
+                        pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
+                        
+                        // 添加到状态元素后面
+                        status.appendChild(pendingTimeElem);
+                    } else {
+                        // 尝试解析其他格式的时间
+                        const pendingDate = new Date(data.pendingTime[index]);
+                        if (!isNaN(pendingDate.getTime())) {
+                            const now = new Date();
+                            const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
+                            
+                            const pendingTimeElem = document.createElement('span');
+                            pendingTimeElem.className = 'pending-time';
+                            pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
+                            
+                            status.appendChild(pendingTimeElem);
+                        }
+                    }
                 } catch (error) {
                     console.error('计算挂起时间出错:', error);
                 }
@@ -325,17 +330,32 @@ const danmuModule = {
             const timeStr = data.createtime[index];
             if (timeStr && typeof timeStr === 'string') {
                 try {
-                    const date = new Date(timeStr);
-                    if (!isNaN(date.getTime())) {
-                        // 严格按照图片中所示的格式：MM-DDTHH:MM
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const hours = String(date.getHours()).padStart(2, '0');
-                        const minutes = String(date.getMinutes()).padStart(2, '0');
-                        createtime.textContent = `----${month}-${day}T${hours}:${minutes}`;
+                    // 尝试直接显示yyyy-MM-dd HH:mm:ss格式时间，转换为"月-日 时:分"格式
+                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+                        const [datePart, timePart] = timeStr.split(' ');
+                        const dateComponents = datePart.split('-');
+                        const timeComponents = timePart.split(':');
+                        
+                        // 提取月、日、时、分
+                        const month = dateComponents[1];
+                        const day = dateComponents[2];
+                        const hour = timeComponents[0];
+                        const minute = timeComponents[1];
+                        
+                        createtime.textContent = `----${month}-${day} ${hour}:${minute}`;
                     } else {
-                        createtime.textContent = `----未知时间`;
-                        console.warn('无效的日期对象:', timeStr);
+                        // 尝试解析为日期对象再格式化
+                        const date = new Date(timeStr);
+                        if (!isNaN(date.getTime())) {
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const hours = String(date.getHours()).padStart(2, '0');
+                            const minutes = String(date.getMinutes()).padStart(2, '0');
+                            createtime.textContent = `----${month}-${day} ${hours}:${minutes}`;
+                        } else {
+                            createtime.textContent = `----未知时间`;
+                            console.warn('无效的日期对象:', timeStr);
+                        }
                     }
                 } catch (error) {
                     createtime.textContent = `----未知时间`;

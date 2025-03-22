@@ -20,6 +20,22 @@ export class DanmuService {
     this.logger = loggerService.setContext('DanmuService');
   }
 
+  /**
+   * 将日期格式化为 yyyy-MM-dd HH:mm:ss 格式
+   * @param date 日期对象
+   * @returns 格式化后的日期字符串
+   */
+  private formatDateTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
   async updateStatus(uid: string, status: string) {
     try {
       const danmu = await this.danmuModel.findOne({
@@ -34,7 +50,7 @@ export class DanmuService {
       if (status === 'pending') {
         await danmu.update({ 
           status,
-          pendingTime: new Date().toISOString()
+          pendingTime: this.formatDateTime(new Date())
         });
       } 
       // 如果从pending恢复到waiting，清除挂起时间
@@ -198,11 +214,15 @@ export class DanmuService {
       
       let danmu;
       
+      // 格式化当前时间为yyyy-MM-dd HH:mm:ss格式
+      const now = new Date();
+      const formattedTime = this.formatDateTime(now);
+      
       if (existingDanmu) {
         // 如果昵称已存在，更新内容和状态
         existingDanmu.text = text;
         existingDanmu.status = 'waiting'; // 重置为等待状态
-        existingDanmu.createtime = new Date().toISOString(); // 更新时间
+        existingDanmu.createtime = formattedTime; // 更新时间为标准格式
         await existingDanmu.save();
         
         danmu = existingDanmu;
@@ -219,7 +239,7 @@ export class DanmuService {
           nickname,
           text,
           status: 'waiting',
-          createtime: new Date().toISOString(),
+          createtime: formattedTime, // 使用标准格式的时间
           account: '',
           password: ''
         });
