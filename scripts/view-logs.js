@@ -112,7 +112,51 @@ function formatLogLine(line, isJson) {
       // 构建彩色输出
       let coloredOutput = '';
       
-      // 时间戳
+      // 特殊处理弹幕消息
+      if (parsed.nickname) {
+        // 提取时间戳的短格式：yyyy-MM-dd HH:mm:ss
+        const shortTimestamp = timestamp.split('.')[0]; // 去掉毫秒部分
+        
+        // 判断操作类型 - 首先检查operation字段，其次检查消息内容
+        let operationType = null;
+        if (parsed.operation) {
+          operationType = parsed.operation;
+        } else if (message.includes('保存')) {
+          operationType = '保存';
+        } else if (message.includes('删除操作成功')) {
+          operationType = '删除';
+        } else if (message.includes('完成操作成功')) {
+          operationType = '完成';
+        } else if (message.includes('编辑操作成功')) {
+          operationType = '编辑';
+        } else if (message.includes('弹幕')) {
+          operationType = '弹幕';
+        }
+        
+        // 根据操作类型设置对应的颜色和格式
+        if (operationType) {
+          let color = '';
+          switch(operationType) {
+            case '删除': color = '31'; break; // 红色
+            case '完成': color = '32'; break; // 绿色
+            case '编辑': color = '34'; break; // 蓝色
+            case '保存': color = '33'; break; // 黄色
+            case '弹幕': color = '32'; break; // 绿色
+            default: color = '37'; break;     // 白色
+          }
+          if(operationType === '弹幕'){
+            coloredOutput = `\x1b[${color}m【${operationType}】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text || ''}\x1b[0m`;
+          
+          }
+          else{
+          // 添加弹幕文本内容到输出中
+          coloredOutput = `\x1b[${color}m【${operationType}】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m\x1b[90m[${shortTimestamp}]\x1b[0m`;
+          }
+          return coloredOutput;
+        }
+      }
+      
+      // 普通消息
       coloredOutput += `\x1b[90m[${timestamp}]\x1b[0m `;
       
       // 日志级别 (带颜色)
@@ -128,21 +172,7 @@ function formatLogLine(line, isJson) {
         coloredOutput += `\x1b[37m[${level}]\x1b[0m `;
       }
       
-      // 上下文
-      coloredOutput += `\x1b[35m[${context}]\x1b[0m `;
-      
-      // 特殊处理弹幕消息
-      if (message.includes('弹幕') && parsed.nickname && parsed.text) {
-        if (message.includes('保存')) {
-          coloredOutput = `\x1b[33m【保存】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text}\x1b[0m`;
-        } else {
-          coloredOutput = `\x1b[32m【弹幕】\x1b[0m\x1b[36m${parsed.nickname}\x1b[0m: \x1b[37m${parsed.text}\x1b[0m`;
-        }
-        return coloredOutput;
-      }
-      
-      // 普通消息
-      coloredOutput += message;
+      coloredOutput += `\x1b[35m[${context}]\x1b[0m ${message}`;
       
       // 其他元数据
       const meta = { ...parsed };
@@ -199,7 +229,36 @@ async function readLogFile(filename, options) {
       if (options.danmu) {
         try {
           const parsed = JSON.parse(line);
-          if (!parsed.message || (!parsed.message.includes('弹幕') && !parsed.message.includes('保存'))) {
+          
+          // 判断是否是弹幕操作记录
+          const isDanmuOperation = (
+            // 操作字段检查 - 明确包含operation字段
+            (parsed.operation && ['保存', '删除', '完成', '编辑'].includes(parsed.operation)) ||
+            
+            // 消息内容检查 - 包含特定关键词并且有nickname和text
+            (parsed.nickname && parsed.text && (
+              parsed.message && (
+                parsed.message.includes('弹幕') || 
+                parsed.message.includes('保存') || 
+                parsed.message.includes('删除操作成功') || 
+                parsed.message.includes('完成操作成功') || 
+                parsed.message.includes('编辑操作成功')
+              )
+            ))
+          );
+          
+          if (!isDanmuOperation) {
+            continue;
+          }
+          
+          // 过滤掉操作过程中的INFO日志
+          if (parsed.level === 'info' && parsed.message && (
+            parsed.message.includes('处理删除请求') || 
+            parsed.message.includes('处理完成请求') || 
+            parsed.message.includes('处理编辑请求') ||
+            // 没有直接链接到特定昵称的日志
+            (parsed.message.includes('操作成功') && !parsed.nickname)
+          )) {
             continue;
           }
         } catch {

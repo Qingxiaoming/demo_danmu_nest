@@ -86,14 +86,64 @@ function initSocket() {
                         window.hasValidatedTokenOnce = true;
                         console.log('首次令牌验证完成，结果:', isValid ? '有效' : '无效', '时间:', new Date().toLocaleString());
                     });
-                }, 1000); // 延迟1秒，确保连接稳定
+                }, 2000); // 延迟2秒，确保连接稳定
             } else {
-                console.log('重连成功，跳过令牌验证，直接恢复角色状态');
-                // 如果是重连，假定令牌仍然有效，直接恢复角色
-                window.userRole = 'owner';
-                if (window.auth) {
-                    window.auth.updateUIByRole();
-                    console.log('重连后恢复角色状态为:', window.userRole, '时间:', new Date().toLocaleString());
+                console.log('重连成功，恢复角色状态');
+                
+                // 重连后增加渐进式验证，先使用本地令牌验证恢复角色
+                try {
+                    const token = savedToken;
+                    // 尝试解析token，看是否能获取过期时间（客户端检查）
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join(''));
+                    
+                    const payload = JSON.parse(jsonPayload);
+                    if (payload.exp) {
+                        const expTime = new Date(payload.exp * 1000);
+                        const now = new Date();
+                        const isExpired = expTime < now;
+                        
+                        console.log('重连后本地令牌验证:', {
+                            role: payload.role,
+                            过期时间: expTime.toLocaleString(),
+                            当前时间: now.toLocaleString(),
+                            剩余时间: Math.floor((expTime - now) / 60000) + '分钟',
+                            是否过期: isExpired
+                        });
+                        
+                        // 如果本地验证令牌已过期，执行登出
+                        if (isExpired) {
+                            console.log('重连时本地检测到令牌已过期，执行登出操作');
+                            window.auth.logout();
+                            return;
+                        }
+                        
+                        // 恢复角色
+                        window.userRole = 'owner';
+                        if (window.auth) {
+                            window.auth.updateUIByRole();
+                            console.log('重连后恢复角色状态为:', window.userRole, '时间:', new Date().toLocaleString());
+                        }
+                        
+                        // 在后台轻量级验证令牌
+                        setTimeout(() => {
+                            console.log('重连后执行轻量级令牌验证');
+                            window.socket.emit('check_token', { token });
+                            
+                            window.socket.once('check_token', (response) => {
+                                console.log('重连后令牌验证响应:', response);
+                                if (!response.valid) {
+                                    console.log('重连后令牌验证失败，执行登出操作');
+                                    window.auth.logout();
+                                }
+                            });
+                        }, 5000); // 延迟5秒，降低服务器负载
+                    }
+                } catch (e) {
+                    console.warn('重连后无法解析JWT令牌内容:', e);
                 }
             }
         }

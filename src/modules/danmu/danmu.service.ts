@@ -32,6 +32,15 @@ export class DanmuService {
       
       await danmu.update({ status });
       
+      // 增加带有操作类型和昵称的日志记录，格式与保存弹幕一致
+      const operationText = status === 'deleted' ? '删除' : status === 'completed' ? '完成' : status;
+      this.logger.log(`弹幕${operationText}操作成功`, { 
+        operation: operationText,
+        nickname: danmu.nickname,
+        text: danmu.text,
+        uid: danmu.uid
+      });
+      
       return {
         success: true,
         data: {
@@ -55,6 +64,14 @@ export class DanmuService {
     }
     
     await danmu.update({ text });
+    
+    // 增加带有操作类型和昵称的日志记录，格式与保存弹幕一致
+    this.logger.log(`弹幕编辑操作成功`, { 
+      operation: '编辑',
+      nickname: danmu.nickname,
+      text: text,
+      uid: danmu.uid
+    });
     
     return {
       success: true,
@@ -164,7 +181,12 @@ export class DanmuService {
         await existingDanmu.save();
         
         danmu = existingDanmu;
-        this.logger.log(`弹幕更新成功: ${nickname}, ID: ${danmu.uid}`);
+        this.logger.log(`弹幕更新成功: ${nickname}, ID: ${danmu.uid}`, {
+          operation: '保存',
+          nickname,
+          text,
+          uid: danmu.uid
+        });
       } else {
         // 如果昵称不存在，创建新弹幕
         danmu = await this.danmuModel.create({
@@ -177,7 +199,12 @@ export class DanmuService {
           password: ''
         });
         
-        this.logger.log(`弹幕创建成功: ${nickname}, ID: ${danmu.uid}`);
+        this.logger.log(`弹幕创建成功: ${nickname}, ID: ${danmu.uid}`, {
+          operation: '保存',
+          nickname,
+          text,
+          uid: danmu.uid
+        });
       }
       
       return {

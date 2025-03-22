@@ -95,12 +95,13 @@ function checkTokenValidity() {
             console.warn('客户端令牌解析失败:', e);
         }
         
-        // 如果客户端验证通过，且距离上次服务器验证时间不到30秒，直接使用客户端验证结果
+        // 如果客户端验证通过，且距离上次服务器验证时间不到3分钟，直接使用客户端验证结果
         const lastValidationTime = parseInt(localStorage.getItem('last_token_validation_time') || '0');
         const now = Date.now();
         const timeSinceLastValidation = now - lastValidationTime;
+        const validationCooldown = 3 * 60 * 1000; // 增加到3分钟
         
-        if (payload && !isExpired && timeSinceLastValidation < 30000) {
+        if (payload && !isExpired && timeSinceLastValidation < validationCooldown) {
             console.log('使用客户端验证结果，跳过服务器验证，距上次验证:', Math.floor(timeSinceLastValidation/1000), '秒');
             window.userRole = 'owner';
             updateUIByRole();
@@ -110,36 +111,72 @@ function checkTokenValidity() {
         // 客户端验证成功但需要服务器确认，或解析失败需要服务器验证
         console.log('执行服务器令牌验证，时间:', new Date().toLocaleString());
         
-        // 检查token是否过期（通过socket来验证）
-        window.socket.emit('check_token', { token });
-        
-        // 等待服务器回应
-        return new Promise((resolve) => {
-            window.socket.once('check_token', (response) => {
-                console.log('收到令牌验证响应:', response);
-                if (response.valid) {
-                    console.log('令牌有效，服务器确认');
-                    window.userRole = 'owner';
-                    updateUIByRole();
+        // 创建一个验证函数，支持重试
+        const verifyWithServer = (retryCount = 0, maxRetries = 3) => {
+            return new Promise((resolve) => {
+                console.log(`执行服务器令牌验证（尝试 ${retryCount + 1}/${maxRetries}），时间:`, new Date().toLocaleString());
+                
+                // 检查token是否过期（通过socket来验证）
+                window.socket.emit('check_token', { token });
+                
+                // 设置一个标志，跟踪是否已经收到响应
+                let hasResponse = false;
+                
+                // 等待服务器回应
+                window.socket.once('check_token', (response) => {
+                    hasResponse = true;
+                    console.log('收到令牌验证响应:', response);
                     
-                    // 记录最后一次验证时间
-                    localStorage.setItem('last_token_validation_time', Date.now().toString());
-                    
-                    resolve(true);
-                } else {
-                    console.log('令牌已过期或无效，执行登出操作，原因:', response.message);
-                    logout();
-                    resolve(false);
-                }
+                    if (response.valid) {
+                        console.log('令牌有效，服务器确认');
+                        window.userRole = 'owner';
+                        updateUIByRole();
+                        
+                        // 记录最后一次验证时间
+                        localStorage.setItem('last_token_validation_time', Date.now().toString());
+                        
+                        resolve(true);
+                    } else {
+                        console.log('令牌验证失败，原因:', response.message);
+                        
+                        // 如果有重试次数，则继续尝试
+                        if (retryCount < maxRetries - 1) {
+                            console.log(`令牌验证失败，将在3秒后重试，剩余尝试次数: ${maxRetries - retryCount - 1}`);
+                            setTimeout(() => {
+                                resolve(verifyWithServer(retryCount + 1, maxRetries));
+                            }, 3000);
+                        } else {
+                            console.log('令牌已验证失败且达到最大重试次数，执行登出操作');
+                            logout();
+                            resolve(false);
+                        }
+                    }
+                });
+                
+                // 设置超时，如果服务器没有响应，则尝试重试
+                setTimeout(() => {
+                    if (!hasResponse) {
+                        console.log('令牌验证请求超时');
+                        
+                        // 如果有重试次数，则继续尝试
+                        if (retryCount < maxRetries - 1) {
+                            console.log(`验证请求超时，将在3秒后重试，剩余尝试次数: ${maxRetries - retryCount - 1}`);
+                            setTimeout(() => {
+                                resolve(verifyWithServer(retryCount + 1, maxRetries));
+                            }, 3000);
+                        } else {
+                            console.log('令牌验证超时且达到最大重试次数，执行登出操作');
+                            logout();
+                            resolve(false);
+                        }
+                    }
+                }, 10000); // 10秒超时
             });
-            
-            // 设置超时，如果服务器没有响应，则认为令牌无效
-            setTimeout(() => {
-                console.log('令牌验证超时，执行登出操作');
-                logout();
-                resolve(false);
-            }, 10000); // 增加到10秒
-        });
+        };
+        
+        // 开始验证流程
+        return verifyWithServer();
+        
     } catch (error) {
         console.error('令牌验证过程中发生错误:', error);
         logout();
@@ -154,7 +191,7 @@ function startTokenValidityCheck() {
         clearInterval(window.tokenCheckTimer);
     }
     
-    // 创建新的定时器，每5分钟检查一次令牌有效性
+    // 创建新的定时器，每4分钟检查一次令牌有效性（错开与后端5分钟的冷却时间）
     // 增加立即执行一次检查的逻辑，确保登录后立即验证令牌
     setTimeout(() => {
         console.log('登录后立即执行一次令牌有效性检查，时间:', new Date().toLocaleString());
@@ -164,9 +201,9 @@ function startTokenValidityCheck() {
     window.tokenCheckTimer = setInterval(() => {
         console.log('执行定期令牌有效性检查，时间:', new Date().toLocaleString());
         checkTokenValidity();
-    }, 5 * 60 * 1000); // 5分钟
+    }, 4 * 60 * 1000); // 改为4分钟，错开与后端5分钟的冷却时间
     
-    console.log('已启动定期令牌有效性检查，间隔为5分钟');
+    console.log('已启动定期令牌有效性检查，间隔为4分钟');
 }
 
 // 登出功能
@@ -321,31 +358,38 @@ function initAuth() {
                         return;
                     }
                     
-                    // 如果令牌有效，设置为登录状态
+                    // 如果令牌有效，设置为登录状态，延迟验证以减少服务器负载
                     window.userRole = 'owner';
-                    console.log('初始化后根据令牌设置用户角色为:', window.userRole);
+                    console.log('初始化后根据本地令牌验证设置用户角色为:', window.userRole);
+                    
+                    // 记录本地验证时间
+                    localStorage.setItem('last_token_validation_time', now.getTime().toString());
                 }
             } catch (e) {
                 console.warn('无法解析JWT令牌内容:', e);
             }
         } catch (err) {
-            console.error('初始化时令牌验证失败:', err);
+            console.error('初始化时本地令牌验证失败:', err);
         }
         
         // 使用保存的令牌初始化连接
         window.socket.auth = { token: savedToken };
         console.log('使用保存的令牌初始化连接');
         
-        // 验证令牌
+        // 更新UI显示
+        updateUIByRole();
+        
+        // 验证令牌 - 采用渐进式策略，先本地验证后服务器验证
+        // 延长初始验证时间，确保socket连接已稳定
         setTimeout(() => {
-            console.log('初始化延迟1秒后验证令牌有效性，当前角色:', window.userRole);
+            console.log('初始化延迟2秒后验证令牌有效性，当前角色:', window.userRole);
             checkTokenValidity().then(isValid => {
                 if (isValid) {
                     // 如果令牌有效，开始定期检查
                     startTokenValidityCheck();
                 }
             });
-        }, 1000); // 延迟1秒，确保socket连接已建立
+        }, 2000); // 延迟2秒，确保socket连接已建立
     } else {
         // 没有token，确保用户角色为游客
         window.userRole = 'guest';

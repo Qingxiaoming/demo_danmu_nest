@@ -16,7 +16,7 @@ import { EnhancedLoggerService } from '../../core/services/logger.service';
     HttpModule,
     MusicModule,
   ],
-  providers: [
+  providers: [ 
     DanmuGateway, 
     DanmuService, 
     BilibiliService, 

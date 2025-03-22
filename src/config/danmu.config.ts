@@ -30,7 +30,7 @@ export const DanmuConfig = {
   // 系统相关配置
   system: {
     updateInterval: 2000, // 数据更新间隔（毫秒）
-    clientCleanupInterval: 30 * 60 * 1000, // 客户端清理间隔（30分钟）
+    clientCleanupInterval: 2 * 30 * 60 * 1000, // 客户端清理间隔（30分钟）
     clientExpireTime: 2 * 60 * 60 * 1000, // 客户端过期时间（2小时）
   }
 }; 
