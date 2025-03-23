@@ -101,7 +101,6 @@
     cursor: move;
     height: 100px; /* 卡片高度 */
     user-select: none;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     border-radius: 5px;
 }
 
