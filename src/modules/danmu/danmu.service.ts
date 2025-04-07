@@ -68,8 +68,8 @@ export class DanmuService {
       // 增加带有操作类型和昵称的日志记录，格式与保存弹幕一致
       const operationText = status === 'deleted' ? '删除' : 
                            status === 'completed' ? '完成' : 
-                           status === 'pending' ? '挂起' : 
-                           status === 'waiting' && danmu.status === 'pending' ? '恢复' : status;
+                           status === 'pending' ? '挂起' :
+                           status === 'waiting' && danmu.status === 'pending' ?  status : '恢复';
       this.logger.log(`弹幕${operationText}操作成功`, { 
         operation: operationText,
         nickname: danmu.nickname,
@@ -299,7 +299,6 @@ export class DanmuService {
         pendingTime.push(danmu.pendingTime || null); // 添加挂起时间
       });
       
-      this.logger.debug(`获取到 ${danmus.length} 条弹幕数据`);
       
       // 返回格式化的数据
       return {
@@ -384,7 +383,6 @@ export class DanmuService {
       
       // 获取数据库中存储的管理员密码（bcrypt加密后的）
       const adminPasswordHash = await this.getAdminPassword();
-      this.logger.log(`从数据库获取到的管理员密码: ${adminPasswordHash}`);
       this.logger.log(`传入的密码: ${password}`);
 
       // 使用bcrypt.compare验证密码

@@ -503,7 +503,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
       }
 
       const result = await this.danmuService.getAccountPassword(index);
-      this.server.emit('get_acps', result);
+      client.emit('get_acps', result);
       this.logger.log('获取账密操作成功', { 
         clientId: client.id, 
         danmuId: index 

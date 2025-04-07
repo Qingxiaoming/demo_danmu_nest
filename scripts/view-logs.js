@@ -137,11 +137,13 @@ function formatLogLine(line, isJson) {
         if (operationType) {
           let color = '';
           switch(operationType) {
-            case '删除': color = '31'; break; // 红色
+            case '删除': color = '90'; break; // 灰色
             case '完成': color = '32'; break; // 绿色
-            case '编辑': color = '34'; break; // 蓝色
-            case '保存': color = '33'; break; // 黄色
-            case '弹幕': color = '32'; break; // 绿色
+            case '编辑': color = '33'; break; // 橙色
+            case '保存': color = '33'; break; // 橙色
+            case '弹幕': color = '37'; break; // 白色
+            case '挂起': color = '35'; break; // 紫色
+            case '恢复': color = '33'; break; // 橙色
             default: color = '37'; break;     // 白色
           }
           if(operationType === '弹幕' || operationType === '编辑'){
