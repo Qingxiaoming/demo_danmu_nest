@@ -904,9 +904,65 @@ function showSongSearchResults(songs) {
     }
 }
 
+// 显示定时器组件
+function showTimer() {
+    console.log('尝试显示定时器组件');
+    
+    // 检查是否已经存在定时器容器和角标
+    const existingContainer = document.getElementById('timer-container');
+    const existingBadge = document.getElementById('timer-badge');
+    
+    if (existingContainer || existingBadge) {
+        console.log('定时器组件或角标已存在，让权限系统管理显隐状态');
+        
+        // 通过调用权限系统来正确显示或隐藏元素
+        if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
+            window.permissions.manageTimerVisibility();
+        }
+        return;
+    }
+    
+    // 初始化定时器模块
+    if (window.timerModule && typeof window.timerModule.init === 'function') {
+        window.timerModule.init();
+        
+        // 获取定时器实例
+        const timerInstance = window.timerModule.getTimer();
+        if (timerInstance) {
+            // 创建定时器UI组件
+            timerInstance.createTimerUI();
+            
+            // 确保角标始终创建
+            timerInstance.createBadge();
+            
+            console.log('定时器组件和角标已创建');
+            
+            // 创建后通过权限系统管理显隐状态
+            if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
+                window.permissions.manageTimerVisibility();
+            }
+        } else {
+            console.error('无法获取定时器实例');
+        }
+    } else {
+        console.error('定时器模块未加载或初始化方法不可用');
+    }
+}
+
+// 检查权限并显示定时器
+function checkPermissions() {
+    // 使用权限系统管理定时器显示
+    if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
+        window.permissions.manageTimerVisibility();
+    }
+}
+
 // 初始化UI事件
 function initUIEvents() {
     console.log('初始化UI事件');
+    
+    // 检查权限并显示定时器
+    checkPermissions();
     
     // 初始化设置按钮
     const settingsBtn = document.getElementById('settings-btn');
@@ -949,5 +1005,7 @@ window.ui = {
     showAccountPasswordDialog,
     showSongSearchResults,
     showSongRequestDialog,
-    initUIEvents
+    showTimer,
+    initUIEvents,
+    checkPermissions
 }; 

@@ -118,6 +118,92 @@ function saveShortcutSettings(settings) {
     return settings;
 }
 
+// 停止所有音频播放
+function stopAllAudio() {
+    // 创建一个列表来存储所有可能的音频元素
+    const audioElements = [
+        // 音乐播放器中的音频元素
+        document.getElementById('music-audio'),
+        // 定时器结束提示音
+        window.timerAudio,
+        // 使用 document.querySelectorAll 获取所有 audio 元素
+        ...document.querySelectorAll('audio')
+    ];
+    
+    // 停止所有找到的音频元素
+    let stoppedCount = 0;
+    audioElements.forEach(audio => {
+        if (audio && !audio.paused) {
+            try {
+                audio.pause();
+                audio.currentTime = 0;
+                stoppedCount++;
+            } catch (e) {
+                console.error('停止音频失败:', e);
+            }
+        }
+    });
+    
+    // 通过 Web Audio API 停止所有上下文
+    try {
+        if (window.audioContext) {
+            window.audioContext.suspend();
+        }
+        
+        if (window.player && window.player.pauseMusic && typeof window.player.pauseMusic === 'function') {
+            window.player.pauseMusic();
+        }
+    } catch (e) {
+        console.error('停止音频上下文失败:', e);
+    }
+    
+    console.log(`已停止 ${stoppedCount} 个音频播放`);
+    
+    // 显示反馈提示
+    showAudioStoppedFeedback();
+}
+
+// 显示音频停止的视觉反馈
+function showAudioStoppedFeedback() {
+    // 创建一个临时的视觉反馈元素
+    const feedback = document.createElement('div');
+    feedback.style.position = 'fixed';
+    feedback.style.bottom = '130px';
+    feedback.style.left = '20px';
+    feedback.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    feedback.style.color = 'white';
+    feedback.style.padding = '8px 12px';
+    feedback.style.borderRadius = '4px';
+    feedback.style.fontSize = '14px';
+    feedback.style.zIndex = '1001';
+    feedback.style.opacity = '0';
+    feedback.style.transition = 'opacity 0.3s ease';
+    feedback.textContent = '已停止所有音频播放';
+    
+    document.body.appendChild(feedback);
+    
+    // 淡入显示
+    setTimeout(() => {
+        feedback.style.opacity = '1';
+    }, 10);
+    
+    // 2秒后淡出并移除
+    setTimeout(() => {
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+            feedback.remove();
+        }, 300);
+    }, 2000);
+}
+
+// 初始化停止音乐按钮
+function initStopMusicButton() {
+    const stopButton = document.getElementById('stop-music-btn');
+    if (stopButton) {
+        stopButton.addEventListener('click', stopAllAudio);
+    }
+}
+
 // 导出工具函数
 window.utils = {
     showConnectionStatus,
@@ -126,5 +212,7 @@ window.utils = {
     checkAuthenticatedPermission,
     initDraggableGif,
     loadShortcutSettings,
-    saveShortcutSettings
+    saveShortcutSettings,
+    stopAllAudio,
+    initStopMusicButton
 }; 

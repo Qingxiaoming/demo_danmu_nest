@@ -386,3 +386,199 @@ body {
     margin: 20px 0;
     background-color: #f9f9f9;
 }
+
+/* 定时器组件样式 */
+.timer-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    padding: 12px;
+    color: white;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    width: 220px;
+    cursor: default;
+    user-select: none;
+}
+
+.timer-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+    cursor: move;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.timer-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.timer-display {
+    font-size: 40px;
+    font-weight: bold;
+    text-align: center;
+    margin: 10px 0;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+.timer-display:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#timer-time-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    font-size: 36px;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    padding: 5px;
+    border-radius: 5px;
+    outline: none;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.timer-controls button {
+    flex: 1;
+    height: 36px;
+    border: none;
+    border-radius: 5px;
+    background: rgba(76, 175, 80, 0.3);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.timer-controls button:hover {
+    background: rgba(76, 175, 80, 0.5);
+}
+
+.timer-controls button:active {
+    transform: scale(0.95);
+}
+
+#timer-start {
+    background: rgba(76, 175, 80, 0.3);
+}
+
+#timer-start:hover {
+    background: rgba(76, 175, 80, 0.5);
+}
+
+#timer-pause {
+    background: rgba(255, 152, 0, 0.3);
+}
+
+#timer-pause:hover {
+    background: rgba(255, 152, 0, 0.5);
+}
+
+#timer-reset {
+    background: rgba(33, 150, 243, 0.3);
+}
+
+#timer-reset:hover {
+    background: rgba(33, 150, 243, 0.5);
+}
+
+#timer-mode {
+    background: rgba(156, 39, 176, 0.3);
+}
+
+#timer-mode:hover {
+    background: rgba(156, 39, 176, 0.5);
+}
+
+/* 定时器角标样式 */
+.timer-badge {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 50px;
+    padding: 10px 16px;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.timer-badge:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.35);
+}
+
+.timer-badge:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.timer-badge-display {
+    font-size: 18px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+}
+
+.timer-badge-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(76, 175, 80, 0.5);
+    border-radius: 50%;
+}
+
+/* 停止音乐按钮样式 */
+.stop-music-btn {
+    position: fixed;
+    bottom: 80px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(220, 53, 69, 0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.stop-music-btn:hover {
+    background-color: rgba(220, 53, 69, 1);
+    transform: scale(1.1);
+}
+
+.stop-music-btn i {
+    font-size: 18px;
+}

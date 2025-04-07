@@ -44,6 +44,11 @@ function updateUIByRole() {
     if (loginStatus) {
         loginStatus.textContent = '';
     }
+    
+    // 检查并更新定时器显示
+    if (window.ui && window.ui.checkPermissions) {
+        window.ui.checkPermissions();
+    }
 }
 
 // 检查JWT令牌是否有效

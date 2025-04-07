@@ -38,7 +38,12 @@ window.permissions = (function() {
         
         // 状态信息
         'login-status': { role: ROLES.ALL, eyeState: STATES.ALWAYS },
-        'password-error': { role: ROLES.GUEST, eyeState: STATES.CLOSED }
+        'password-error': { role: ROLES.GUEST, eyeState: STATES.CLOSED },
+        
+        // 定时器组件
+        'timer-container': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'timer-badge': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'stop-music-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.ALWAYS }
     };
 
     // 弹幕状态显示规则
@@ -64,6 +69,18 @@ window.permissions = (function() {
             return isEyeOpen;
         }
         
+        // 定时器组件处理 - 仅管理员在闭眼状态下显示
+        if (elementId === 'timer-container') {
+            const isMinimized = window.Timer && window.Timer.isMinimized;
+            // 只有当管理员在闭眼状态下且定时器未最小化时才显示定时器容器
+            return isAuthenticated && !isEyeOpen && !isMinimized;
+        }
+        
+        // 角标处理 - 管理员状态下闭眼显示
+        if (elementId === 'timer-badge') {
+            return isAuthenticated && !isEyeOpen;
+        }
+        
         // 其他元素使用标准的角色和眼睛状态检查
         const hasRolePermission = 
             config.role === ROLES.ALL || 
@@ -84,6 +101,76 @@ window.permissions = (function() {
         if (!rule) return true; // 如果没有规则，默认显示
         
         return isEyeOpen ? rule.openEye : rule.closedEye;
+    }
+
+    /**
+     * 判断用户是否已认证（管理员权限）
+     * @returns {boolean} 是否已认证
+     */
+    function isUserAuthenticated() {
+        return window.userRole === 'owner';
+    }
+
+    /**
+     * 获取当前眼睛状态
+     * @returns {string} 'open' 或 'closed'
+     */
+    function getEyeState() {
+        return window.danmu && window.danmu.showNonWaiting ? 'open' : 'closed';
+    }
+
+    /**
+     * 管理定时器和角标显示
+     */
+    function manageTimerVisibility() {
+        const timerContainer = document.getElementById('timer-container');
+        const timerBadge = document.getElementById('timer-badge');
+        const stopMusicBtn = document.getElementById('stop-music-btn');
+        const timerInstance = window.timerModule ? window.timerModule.getTimer() : null;
+        
+        if (!timerInstance) {
+            console.log('定时器实例不存在，无法管理显隐');
+            return;
+        }
+
+        const isMinimized = timerInstance.isMinimized;
+        const isAuthenticated = isUserAuthenticated();
+        const isEyeOpen = getEyeState() === 'open';
+        
+        console.log(`定时器显隐状态: 已认证=${isAuthenticated}, 眼睛状态=${isEyeOpen ? '睁开' : '闭合'}, 最小化=${isMinimized}`);
+        
+        // 处理定时器容器
+        if (timerContainer) {
+            // 只有在认证状态、非最小化且闭眼状态时显示定时器容器
+            if (isAuthenticated && !isMinimized && !isEyeOpen) {
+                timerContainer.style.display = '';
+                console.log('显示定时器容器');
+            } else {
+                timerContainer.style.display = 'none';
+                console.log('隐藏定时器容器');
+            }
+        }
+        
+        // 处理角标
+        if (timerBadge) {
+            // 管理员状态下闭眼显示 - 只有在认证状态且闭眼状态下显示角标
+            if (isAuthenticated && !isEyeOpen) {
+                timerBadge.style.display = '';
+                console.log('显示定时器角标');
+            } else {
+                timerBadge.style.display = 'none';
+                console.log('隐藏定时器角标');
+            }
+        }
+        
+        // 处理停止音乐按钮 - 与角标使用相同的显示规则
+        if (stopMusicBtn) {
+            if (isAuthenticated && !isEyeOpen) {
+                stopMusicBtn.style.display = '';
+            } else {
+                stopMusicBtn.style.display = 'none';
+            }
+        }
     }
 
     // 更新UI元素显示状态
@@ -122,6 +209,9 @@ window.permissions = (function() {
                 }
             }
         }
+        
+        // 处理定时器组件
+        manageTimerVisibility();
     }
 
     // 公开API
@@ -132,6 +222,7 @@ window.permissions = (function() {
         danmuStatusRules,
         shouldShowElement,
         shouldShowDanmuStatus,
-        updateUIVisibility
+        updateUIVisibility,
+        manageTimerVisibility
     };
 })(); 

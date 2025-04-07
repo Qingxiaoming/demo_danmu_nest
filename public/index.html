@@ -6,10 +6,11 @@
     <title>----</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="css/player.css">
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon">
 </head>
 <body>
     <div id="draggable-gif-container" class="draggable-gif">
-        <img src="./-klbw3Qjzp-691xZbT1kSdw-dw.gif" alt="可拖动GIF" height="100">
+        <img src="images/dw.gif" alt="可拖动GIF" height="100">
     </div>
     <h1></h1>
     <div class="auth-container">
@@ -50,6 +51,11 @@
         <audio id="music-audio" style="display: none;"></audio>
     </div>
     
+    <!-- 停止音乐按钮 -->
+    <button id="stop-music-btn" class="stop-music-btn" title="停止所有音频播放">
+        <i class="fas fa-volume-mute"></i>
+    </button>
+    
     <!-- 外部库 -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
@@ -58,6 +64,7 @@
     
     <!-- 应用模块 -->
     <script src="js/utils.js"></script>
+    <script src="js/timer.js"></script>
     <script src="js/permissions.js"></script>
     <script src="js/socket.js"></script>
     <script src="js/auth.js"></script>
@@ -85,7 +92,31 @@
             window.utils.initDraggableGif();
 
             // 初始化播放器
-            window.player.initPlayer(); // 确保调用初始化播放器
+            window.player.initPlayer();
+            
+            // 初始化停止音乐按钮
+            window.utils.initStopMusicButton();
+            
+            // 清除可能导致定时器不显示的错误状态
+            console.log('检查定时器状态，尝试修复可能的错误状态');
+            localStorage.removeItem('timerClosed');
+            
+            // 定时器模块通过 DOMContentLoaded 事件自行初始化
+            // 但我们可以在UI加载完成后再次检查定时器的状态
+            setTimeout(() => {
+                if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
+                    console.log('页面加载完成，检查定时器状态');
+                    window.permissions.manageTimerVisibility();
+                    
+                    // 如果用户已登录且处于闭眼状态，尝试强制显示定时器
+                    if (window.userRole === 'owner' && window.danmu && !window.danmu.showNonWaiting) {
+                        console.log('用户已登录且处于闭眼状态，尝试显示定时器');
+                        if (window.ui && typeof window.ui.showTimer === 'function') {
+                            window.ui.showTimer();
+                        }
+                    }
+                }
+            }, 1000); // 延长等待时间，确保所有组件都已初始化
         });
     </script>
 </body>
