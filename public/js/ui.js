@@ -142,14 +142,14 @@ function showSettingsDialog() {
     settingsMenu.style.minWidth = '180px';
     
     // 添加菜单项
-    const menuItems = [
-        { id: 'shortcut-settings', text: '快捷键设置', icon: 'fas fa-keyboard' },
-        { id: 'ui-settings', text: '界面设置', icon: 'fas fa-palette' },
-        { id: 'queue-settings', text: '排队设置', icon: 'fas fa-list-ol' },
-        { id: 'music-settings', text: '音乐设置', icon: 'fas fa-music' }
+    const settingsOptions = [
+        { id: 'theme', text: '主题', icon: 'fas fa-palette' },
+        { id: 'font', text: '字体', icon: 'fas fa-font' },
+        { id: 'display', text: '显示', icon: 'fas fa-desktop' },
+        { id: 'timer', text: '定时器', icon: 'fas fa-stopwatch' }
     ];
     
-    menuItems.forEach(item => {
+    settingsOptions.forEach(item => {
         const menuItem = document.createElement('div');
         menuItem.className = 'settings-menu-item';
         menuItem.innerHTML = `<i class="${item.icon}"></i> ${item.text}`;
@@ -173,17 +173,17 @@ function showSettingsDialog() {
             e.stopPropagation(); // 阻止事件冒泡
             closeMenu();
             switch (item.id) {
-                case 'shortcut-settings':
-                    showShortcutSettings();
-                    break;
-                case 'ui-settings':
+                case 'theme':
                     showUISettings();
                     break;
-                case 'queue-settings':
-                    showQueueSettings();
+                case 'font':
+                    showUISettings();
                     break;
-                case 'music-settings':
-                    showMusicSettings();
+                case 'display':
+                    showUISettings();
+                    break;
+                case 'timer':
+                    showTimer();
                     break;
             }
         });
@@ -679,90 +679,23 @@ function showAccountPasswordDialog(data, uid) {
     document.body.appendChild(dialog);
 }
 
-// 显示点歌对话框
-function showSongRequestDialog() {
-    // 设置对话框显示状态为true
-    window.danmu.isShowingDialog = true;
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'acps-dialog-overlay';
-    document.body.appendChild(overlay);
-
-    const dialog = document.createElement('div');
-    dialog.className = 'acps-dialog';
-    dialog.innerHTML = `
-        <h3>点歌</h3>
-        <p class="dialog-tip">输入歌曲名称或歌手名称进行搜索</p>
-        <input type="text" id="song-search-input" placeholder="输入歌曲名称">
-        <div class="settings-actions">
-            <button id="song-search-btn">搜索</button>
-            <button id="song-cancel-btn">取消</button>
-        </div>
-    `;
-
-    // 添加延时以触发动画
-    requestAnimationFrame(() => {
-        overlay.classList.add('show');
-        dialog.classList.add('show');
-    });
-
-    const searchButton = dialog.querySelector('#song-search-btn');
-    const cancelButton = dialog.querySelector('#song-cancel-btn');
-    const searchInput = dialog.querySelector('#song-search-input');
-
-    // 添加键盘事件监听
-    const handleKeydown = (e) => {
-        if (e.key === 'Enter') {
-            searchButton.click();
-        } else if (e.key === 'Escape') {
-            cancelButton.click();
-        }
-    };
-    document.addEventListener('keydown', handleKeydown);
-
-    // 搜索按钮点击事件
-    searchButton.onclick = () => {
-        const songName = searchInput.value.trim();
-        if (songName) {
-            // 发送搜索请求到服务器
-            window.socket.emit('search_song', { keyword: songName });
-            closeDialog();
-        } else {
-            alert('请输入歌曲名称');
-        }
-    };
-
-    // 取消按钮点击事件
-    cancelButton.onclick = () => {
-        closeDialog();
-    };
-
-    // 关闭对话框函数
-    const closeDialog = () => {
-        document.removeEventListener('keydown', handleKeydown);
-        overlay.classList.remove('show');
-        dialog.classList.remove('show');
-        setTimeout(() => {
-            overlay.remove();
-            dialog.remove();
-            // 设置对话框显示状态为false
-            window.danmu.isShowingDialog = false;
-        }, 300);
-    };
-
-    // 自动聚焦到输入框
-    setTimeout(() => {
-        searchInput.focus();
-    }, 100);
-
-    document.body.appendChild(dialog);
-}
-
 /**
  * 显示歌曲搜索结果对话框
  * @param {Array} songs 歌曲搜索结果列表
  */
 function showSongSearchResults(songs) {
+    // 检查当前是否为管理员闭眼状态
+    const isAuthenticated = window.permissions && typeof window.permissions.isUserAuthenticated === 'function' ? 
+        window.permissions.isUserAuthenticated() : window.userRole === 'owner';
+    const isEyeOpen = window.permissions && typeof window.permissions.getEyeState === 'function' ? 
+        window.permissions.getEyeState() === 'open' : (window.danmu && window.danmu.showNonWaiting);
+    
+    // 如果不是管理员闭眼状态，不允许显示歌曲搜索结果
+    if (!isAuthenticated || isEyeOpen) {
+        console.error('只有在管理员闭眼状态下才能显示歌曲搜索结果');
+        return;
+    }
+    
     if (!songs || songs.length === 0) {
         alert('没有找到相关歌曲');
         return;
@@ -793,10 +726,21 @@ function showSongSearchResults(songs) {
     // 添加歌曲列表
     songs.forEach((song, index) => {
         const isVip = song.vip ? '<span class="song-vip">VIP</span>' : '';
+        
+        // 检查封面是否有效，如果无效则使用内联数据URL作为默认封面
+        let coverUrl = './images/default-cover.jpg';  // 默认封面路径
+        
+        // 使用内联SVG作为备选
+        const defaultCoverSvg = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNlZWUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIzNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgYWxpZ25tZW50LWJhc2VsaW5lPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+        
+        if (song.cover && song.cover.trim() !== '' && !song.cover.includes('T002R300x300M000.jpg')) {
+            coverUrl = song.cover;
+        }
+        
         dialogContent += `
             <div class="song-item" data-index="${index}">
                 <div class="song-cover">
-                    <img src="${song.cover || 'default-cover.jpg'}" alt="${song.name}">
+                    <img src="${coverUrl}" alt="${song.name}" onerror="this.src='${defaultCoverSvg}'">
                 </div>
                 <div class="song-info">
                     <div class="song-name">${song.name} ${isVip}</div>
@@ -867,8 +811,6 @@ function showSongSearchResults(songs) {
     
     // 播放选中的歌曲
     function playSelectedSong(song) {
-        console.log('播放选中的歌曲:', song);
-        
         // 检查歌曲对象是否包含必要的id和platform属性
         if (!song || !song.id || !song.platform) {
             console.error('歌曲信息不完整，无法播放', song);
@@ -876,31 +818,32 @@ function showSongSearchResults(songs) {
             return;
         }
         
-        // 保存当前选中的歌曲信息到全局变量，以便在收到服务器响应前显示
-        window.player.currentSelectedSong = {
-            id: song.id,
-            platform: song.platform,
-            name: song.name || '加载中...',
-            artist: song.artist || '未知歌手',
-            album: song.album || '',
-            cover: song.cover || null,
-            duration: song.duration || 0,
-            // url和歌词将由服务器返回
-            url: null,
-            lrc: null
-        };
+        // 检查socket连接状态
+        if (!window.socket || !window.socket.connected) {
+            console.error('Socket未连接，无法播放歌曲');
+            alert('网络连接不可用，请刷新页面后重试');
+            return;
+        }
         
-        // 立即显示歌曲信息，但不播放
-        window.player.showSongInfo(window.player.currentSelectedSong);
+        // 检查当前是否为管理员闭眼状态
+        const isAuthenticated = window.permissions && typeof window.permissions.isUserAuthenticated === 'function' ? 
+            window.permissions.isUserAuthenticated() : window.userRole === 'owner';
+        const isEyeOpen = window.permissions && typeof window.permissions.getEyeState === 'function' ? 
+            window.permissions.getEyeState() === 'open' : (window.danmu && window.danmu.showNonWaiting);
         
-        // 发送选中的歌曲到服务器
-        window.socket.emit('play_selected_song', { 
-            songId: song.id, 
-            platform: song.platform 
-        });
+        // 如果不是管理员闭眼状态，不允许播放
+        if (!isAuthenticated || isEyeOpen) {
+            console.error('只有在管理员闭眼状态下才能播放音乐');
+            alert('只有在管理员闭眼状态下才能播放音乐');
+            return;
+        }
         
-        // 记录日志
-        console.log(`发送播放请求: ID=${song.id}, 平台=${song.platform}, 歌曲=${song.name}`);
+        // 使用播放器API播放歌曲
+        if (window.player && typeof window.player.selectSong === 'function') {
+            window.player.selectSong(song);
+        } else {
+            alert('播放器未初始化，请刷新页面后重试');
+        }
     }
 }
 
@@ -996,16 +939,8 @@ function initUIEvents() {
 
 // 导出UI模块
 window.ui = {
-    showAddDanmuDialog,
-    showSettingsDialog,
-    showShortcutSettings,
-    showUISettings,
-    showQueueSettings,
-    showMusicSettings,
+    initUIEvents,
     showAccountPasswordDialog,
     showSongSearchResults,
-    showSongRequestDialog,
-    showTimer,
-    initUIEvents,
-    checkPermissions
+    showTimer
 }; 

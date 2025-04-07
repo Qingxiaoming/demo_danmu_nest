@@ -654,9 +654,7 @@ window.timerModule = {
         } catch (e) {
             console.error('播放提示音失败:', e);
         }
-        
-        // 显示提醒
-        alert('时间到！');
+
         
         // 自动重置到之前设定的时间
         if (this.isCountdown) {

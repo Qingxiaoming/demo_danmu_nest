@@ -43,7 +43,12 @@ window.permissions = (function() {
         // 定时器组件
         'timer-container': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
         'timer-badge': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
-        'stop-music-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.ALWAYS }
+        'stop-music-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        
+        // 播放器组件 - 只在管理员闭眼状态时显示
+        'music-player': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'play-pause-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'close-player-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED }
     };
 
     // 弹幕状态显示规则
@@ -78,6 +83,17 @@ window.permissions = (function() {
         
         // 角标处理 - 管理员状态下闭眼显示
         if (elementId === 'timer-badge') {
+            return isAuthenticated && !isEyeOpen;
+        }
+        
+        // 播放器组件处理 - 仅管理员在闭眼状态下显示
+        if (elementId === 'music-player') {
+            // 不自动隐藏已经显示的播放器，让播放按钮来控制
+            const musicPlayer = document.getElementById('music-player');
+            if (musicPlayer && musicPlayer.classList.contains('show')) {
+                return true;
+            }
+            // 否则按照权限规则显示
             return isAuthenticated && !isEyeOpen;
         }
         
@@ -139,36 +155,49 @@ window.permissions = (function() {
         
         console.log(`定时器显隐状态: 已认证=${isAuthenticated}, 眼睛状态=${isEyeOpen ? '睁开' : '闭合'}, 最小化=${isMinimized}`);
         
-        // 处理定时器容器
-        if (timerContainer) {
-            // 只有在认证状态、非最小化且闭眼状态时显示定时器容器
-            if (isAuthenticated && !isMinimized && !isEyeOpen) {
-                timerContainer.style.display = '';
-                console.log('显示定时器容器');
-            } else {
-                timerContainer.style.display = 'none';
-                console.log('隐藏定时器容器');
+        // 处理定时器容器、角标和停止音乐按钮 - 它们都只在管理员闭眼状态下显示
+        const elementsToShow = [timerContainer, timerBadge, stopMusicBtn];
+        const showElements = isAuthenticated && !isEyeOpen;
+        // 定时器容器有额外条件：不能是最小化状态
+        
+        for (const element of elementsToShow) {
+            if (element) {
+                if (element === timerContainer) {
+                    // 定时器容器需要额外检查最小化状态
+                    element.style.display = (showElements && !isMinimized) ? '' : 'none';
+                } else {
+                    element.style.display = showElements ? '' : 'none';
+                }
             }
         }
+    }
+    
+    /**
+     * 管理播放器显隐
+     * 当切换眼睛状态时调用
+     */
+    function manageMusicPlayerVisibility() {
+        const isAuthenticated = isUserAuthenticated();
+        const isEyeOpen = getEyeState() === 'open';
         
-        // 处理角标
-        if (timerBadge) {
-            // 管理员状态下闭眼显示 - 只有在认证状态且闭眼状态下显示角标
-            if (isAuthenticated && !isEyeOpen) {
-                timerBadge.style.display = '';
-                console.log('显示定时器角标');
-            } else {
-                timerBadge.style.display = 'none';
-                console.log('隐藏定时器角标');
+        // 播放器显隐逻辑
+        const musicPlayer = document.getElementById('music-player');
+        if (musicPlayer) {
+            // 已经在播放的不自动隐藏，但新的播放只在闭眼状态下显示
+            if (isEyeOpen && !musicPlayer.classList.contains('show')) {
+                console.log('眼睛睁开状态，新的音乐播放被禁止');
             }
-        }
-        
-        // 处理停止音乐按钮 - 与角标使用相同的显示规则
-        if (stopMusicBtn) {
-            if (isAuthenticated && !isEyeOpen) {
-                stopMusicBtn.style.display = '';
-            } else {
-                stopMusicBtn.style.display = 'none';
+            
+            // 如果在眼睛睁开时已经显示，且用户不是已认证的管理员，则隐藏播放器
+            if (isEyeOpen && musicPlayer.classList.contains('show') && !isAuthenticated) {
+                musicPlayer.classList.remove('show');
+                console.log('非管理员睁眼状态，强制隐藏播放器');
+                
+                // 停止音频播放
+                const musicAudio = document.getElementById('music-audio');
+                if (musicAudio) {
+                    musicAudio.pause();
+                }
             }
         }
     }
@@ -212,6 +241,9 @@ window.permissions = (function() {
         
         // 处理定时器组件
         manageTimerVisibility();
+        
+        // 处理播放器显隐
+        manageMusicPlayerVisibility();
     }
 
     // 公开API
@@ -223,6 +255,7 @@ window.permissions = (function() {
         shouldShowElement,
         shouldShowDanmuStatus,
         updateUIVisibility,
-        manageTimerVisibility
+        manageTimerVisibility,
+        manageMusicPlayerVisibility
     };
 })(); 

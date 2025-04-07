@@ -79,44 +79,83 @@
             // 初始化Socket连接
             window.socket_module.initSocket();
             
-            // 初始化认证模块
-            window.auth.initAuth();
-            
-            // 初始化弹幕模块
-            window.danmu.initDanmu();
-            
-            // 初始化UI事件
-            window.ui.initUIEvents();
-            
-            // 初始化可拖动GIF
-            window.utils.initDraggableGif();
-
-            // 初始化播放器
-            window.player.initPlayer();
-            
-            // 初始化停止音乐按钮
-            window.utils.initStopMusicButton();
-            
-            // 清除可能导致定时器不显示的错误状态
-            console.log('检查定时器状态，尝试修复可能的错误状态');
-            localStorage.removeItem('timerClosed');
-            
-            // 定时器模块通过 DOMContentLoaded 事件自行初始化
-            // 但我们可以在UI加载完成后再次检查定时器的状态
-            setTimeout(() => {
-                if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
-                    console.log('页面加载完成，检查定时器状态');
-                    window.permissions.manageTimerVisibility();
-                    
-                    // 如果用户已登录且处于闭眼状态，尝试强制显示定时器
-                    if (window.userRole === 'owner' && window.danmu && !window.danmu.showNonWaiting) {
-                        console.log('用户已登录且处于闭眼状态，尝试显示定时器');
-                        if (window.ui && typeof window.ui.showTimer === 'function') {
-                            window.ui.showTimer();
+            // 监听socket连接状态
+            let socketInitialized = false;
+            const initializeComponents = () => {
+                if (socketInitialized) return; // 防止重复初始化
+                socketInitialized = true;
+                
+                console.log('Socket连接成功，初始化其他组件');
+                
+                // 初始化认证模块
+                window.auth.initAuth();
+                
+                // 初始化弹幕模块
+                window.danmu.initDanmu();
+                
+                // 初始化UI事件
+                window.ui.initUIEvents();
+                
+                // 初始化可拖动GIF
+                window.utils.initDraggableGif();
+    
+                // 初始化播放器
+                if (window.player && typeof window.player.initPlayer === 'function') {
+                    window.player.initPlayer();
+                    console.log('播放器初始化成功');
+                } else {
+                    console.error('播放器模块未正确加载，将尝试延迟初始化');
+                    // 延迟尝试初始化播放器
+                    setTimeout(() => {
+                        if (window.player && typeof window.player.initPlayer === 'function') {
+                            window.player.initPlayer();
+                            console.log('播放器延迟初始化成功');
+                        } else {
+                            console.error('播放器模块仍未加载，请检查player.js文件');
+                        }
+                    }, 500);
+                }
+                
+                // 初始化停止音乐按钮
+                window.utils.initStopMusicButton();
+                
+                // 清除可能导致定时器不显示的错误状态
+                console.log('检查定时器状态，尝试修复可能的错误状态');
+                localStorage.removeItem('timerClosed');
+                
+                // 定时器模块通过 DOMContentLoaded 事件自行初始化
+                // 但我们可以在UI加载完成后再次检查定时器的状态
+                setTimeout(() => {
+                    if (window.permissions && typeof window.permissions.manageTimerVisibility === 'function') {
+                        console.log('页面加载完成，检查定时器状态');
+                        window.permissions.manageTimerVisibility();
+                        
+                        // 如果用户已登录且处于闭眼状态，尝试强制显示定时器
+                        if (window.userRole === 'owner' && window.danmu && !window.danmu.showNonWaiting) {
+                            console.log('用户已登录且处于闭眼状态，尝试显示定时器');
+                            if (window.ui && typeof window.ui.showTimer === 'function') {
+                                window.ui.showTimer();
+                            }
                         }
                     }
+                }, 1000); // 延长等待时间，确保所有组件都已初始化
+            };
+            
+            // 设置一个连接成功的事件监听
+            if (window.socket) {
+                window.socket.on('connect', () => {
+                    console.log('Socket连接成功，准备初始化组件');
+                    setTimeout(initializeComponents, 500); // 延迟确保连接稳定
+                });
+            }
+            
+            // 设置一个安全超时，即使没有连接事件也会初始化组件
+            setTimeout(() => {
+                if (!socketInitialized) {
+                    console.warn('Socket连接超时，强制初始化组件');
+                    initializeComponents();
                 }
-            }, 1000); // 延长等待时间，确保所有组件都已初始化
+            }, 3000);
         });
     </script>
 </body>

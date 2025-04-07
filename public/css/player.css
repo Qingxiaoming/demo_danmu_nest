@@ -5,17 +5,19 @@
     left: 50%;
     transform: translateX(-50%);
     width: 300px;
-    height: 120px; /* 设置固定高度 */
+    height: 170px; /* 设置固定高度 */
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 10px;
     padding: 15px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     display: none;
     z-index: 1000;
+    overflow: hidden; /* 防止内容溢出 */
 }
 
 .music-player.show {
-    display: block;
+    display: flex; /* 使用flex布局 */
+    flex-direction: column;
     animation: fadeIn 0.5s ease;
 }
 
@@ -28,6 +30,7 @@
     display: flex;
     align-items: center;
     margin-bottom: 10px;
+    flex-shrink: 0; /* 防止压缩 */
 }
 
 .music-cover {
@@ -54,42 +57,128 @@
     font-size: 12px;
     color: #666;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .music-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    margin-top: 5px;
+    gap: 15px;
+    flex-shrink: 0; /* 防止压缩 */
+}
+
+.music-control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    font-size: 14px;
+}
+
+.music-control-btn:hover {
+    background-color: #0069d9;
+    transform: scale(1.05);
+}
+
+.music-control-btn:active {
+    transform: scale(0.95);
+}
+
+#close-player-btn {
+    background-color: #dc3545;
+}
+
+#close-player-btn:hover {
+    background-color: #c82333;
 }
 
 .music-progress {
     width: 100%;
-    height: 4px;
+    height: 6px; /* 增加高度使其更易点击 */
     background-color: #ddd;
-    border-radius: 2px;
-    margin: 10px 0;
+    border-radius: 3px;
+    margin: 8px 0 16px 0; /* 增加底部边距，为时间显示腾出空间 */
     position: relative;
+    cursor: pointer; /* 指示可点击 */
+    transition: height 0.2s;
+    flex-shrink: 0; /* 防止压缩 */
+}
+
+.music-progress:hover {
+    height: 8px; /* 鼠标悬停时增加高度 */
 }
 
 .music-progress-bar {
     height: 100%;
     background-color: #007bff;
-    border-radius: 2px;
+    border-radius: 3px;
     width: 0;
+    position: relative;
+}
+
+.music-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #666;
+    position: absolute;
+    bottom: -16px;
+    left: 0;
+    width: 100%;
+}
+
+.music-time .current-time {
+    text-align: left;
+}
+
+.music-time .total-time {
+    text-align: right;
+}
+
+.progress-tip {
+    position: absolute;
+    bottom: -16px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 10px;
+    color: #666;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.music-progress:hover .progress-tip {
+    opacity: 0; /* 鼠标悬停时不显示提示，而显示时间 */
 }
 
 .music-lyrics {
-    margin-top: 10px;
-    max-height: 60px;
-    overflow-y: auto;
+    margin-top: 5px;
+    height: 40px; /* 固定高度 */
+    overflow: hidden; /* 移除滚动条和箭头 */
     font-size: 12px;
     text-align: center;
     color: #333;
+    flex: 1; /* 自动填充剩余空间 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .current-lyric {
     font-weight: bold;
     color: #007bff;
+    width: 100%;
 }
 
 /* 可拖动GIF样式 */

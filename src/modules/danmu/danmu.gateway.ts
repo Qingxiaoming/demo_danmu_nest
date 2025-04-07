@@ -39,6 +39,8 @@ function handleWsError(error: any) {
 export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger: EnhancedLoggerService;
   private authenticatedClients = new Set<string>();
+  // 存储最近一次搜索结果的歌曲，用于播放选中歌曲时查找
+  private lastSearchResults = [];
   // 跟踪客户端连接状态，避免重复认证
   private clientConnectionState = new Map<string, {
     ip: string;
@@ -727,6 +729,10 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
             
             if (allSongs.length > 0) {
               this.logger.log(`发送${allSongs.length}首歌曲搜索结果到前端`);
+              
+              // 保存搜索结果到全局变量以便后续play_selected_song事件使用
+              this.lastSearchResults = allSongs;
+              
               this.server.emit('song_search_results', {
                 success: true,
                 keyword: result.searchResult.keyword,
@@ -799,26 +805,18 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage('play_selected_song')
   async handlePlaySelectedSong(client: Socket, payload: any) {
     try {
-      const { songId, platform } = payload || {};
+      const { id, platform } = payload || {};
       
-      // 记录详细的请求信息
-      this.logger.log('收到播放选中歌曲请求', { 
-        clientId: client.id, 
-        songId,
-        platform
-      });
-      
-      if (!songId || !platform) {
+      if (!id || !platform) {
         this.logger.warn('播放选中歌曲请求缺少必要参数', { 
           clientId: client.id, 
           errorCode: E.INVALID_PARAMS.error
         });
         
-        // 发送错误响应到客户端
-        this.server.emit('play_song', {
+        this.server.emit('play_selected_song', {
           success: false,
-          message: '请求缺少必要参数(songId或platform)',
-          song: { id: songId, platform }
+          message: '请求缺少必要参数(id或platform)',
+          song: { id, platform }
         });
         
         throw E.INVALID_PARAMS;
@@ -830,25 +828,26 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
           errorCode: E.AUTH_FAILED.error
         });
         
-        // 发送错误响应到客户端
-        this.server.emit('play_song', {
+        this.server.emit('play_selected_song', {
           success: false,
           message: '未授权的操作',
-          song: { id: songId, platform }
+          song: { id, platform }
         });
         
         throw E.AUTH_FAILED;
       }
 
-      this.logger.log(`处理播放选中歌曲请求: ${songId} (${platform})`);
-      
       // 根据ID和平台获取完整歌曲信息
       try {
-        // 创建符合Song类型的最小化对象，使用占位符值
-        this.logger.log(`开始获取歌曲URL和歌词: ${songId} (${platform})`);
+        // 先从最近的搜索结果中查找歌曲
+        let foundSong = null;
+        if (this.lastSearchResults && this.lastSearchResults.length > 0) {
+          foundSong = this.lastSearchResults.find(song => song.id === id && song.platform === platform);
+        }
         
-        const song: Song = {
-          id: songId,
+        // 如果没找到，创建简单的Song对象
+        const song: Song = foundSong || {
+          id: id,
           platform: platform,
           name: '加载中...',
           artist: '未知歌手',
@@ -860,11 +859,10 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
         const fullSongInfo = await this.musicService.getFullSongInfo(song);
         
         if (fullSongInfo.url) {
-          this.logger.log(`获取歌曲URL成功: ${songId} (${platform})`);
-          this.server.emit('play_song', {
+          this.server.emit('play_selected_song', {
             success: true,
             song: {
-              id: songId,
+              id: id,
               platform: platform,
               url: fullSongInfo.url,
               lrc: fullSongInfo.lrc || ''
@@ -872,15 +870,10 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
           });
           return { success: true };
         } else {
-          this.logger.warn(`获取歌曲URL失败: ${songId} (${platform})`, { 
-            errorCode: fullSongInfo.error?.code || E.API_ERROR.error,
-            errorMessage: fullSongInfo.error?.message || '未知错误'
-          });
-          
-          this.server.emit('play_song', {
+          this.server.emit('play_selected_song', {
             success: false,
             song: {
-              id: songId,
+              id: id,
               platform: platform,
               error: {
                 code: fullSongInfo.error?.code || E.API_ERROR.error,
@@ -892,16 +885,10 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
           return { success: false, message: '无法获取歌曲播放地址' };
         }
       } catch (error) {
-        this.logger.error(`获取歌曲URL和歌词失败: ${error.message}`, {
-          songId,
-          platform,
-          errorCode: error.error || E.API_ERROR.error
-        });
-        
-        this.server.emit('play_song', {
+        this.server.emit('play_selected_song', {
           success: false,
           song: {
-            id: songId,
+            id: id,
             platform: platform,
             error: {
               code: error.error || E.API_ERROR.error,
@@ -916,7 +903,7 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     } catch (error) {
       const errorInfo = {
         clientId: client.id,
-        songId: payload?.songId,
+        songId: payload?.id,
         platform: payload?.platform,
         errorCode: error.error || E.UNDEFINED.error,
         errorMessage: error.message

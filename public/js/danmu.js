@@ -498,6 +498,11 @@ const danmuModule = {
             console.log('使用权限系统更新UI状态，眼睛状态切换为:', this.showNonWaiting ? '睁眼' : '闭眼');
             const isAuthenticated = window.userRole === 'owner';
             window.permissions.updateUIVisibility(isAuthenticated, this.showNonWaiting);
+            
+            // 特别管理播放器显隐状态
+            if (typeof window.permissions.manageMusicPlayerVisibility === 'function') {
+                window.permissions.manageMusicPlayerVisibility();
+            }
         }
         
         // 重新渲染弹幕列表
