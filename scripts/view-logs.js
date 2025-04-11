@@ -31,6 +31,7 @@ for (let i = 0; i < args.length; i++) {
     options.level = args[++i].toUpperCase();
   } else if (arg === '--danmu' || arg === '-d') {
     options.danmu = true;
+    options.lines = Infinity; // 当查看弹幕消息时，显示所有行
   } else if (arg === '--all' || arg === '-a') {
     options.all = true;
   } else if (arg === '--help' || arg === '-h') {
