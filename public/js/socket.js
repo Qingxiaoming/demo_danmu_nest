@@ -11,7 +11,7 @@ window.hasValidatedTokenOnce = false; // 添加令牌验证标志
 function initSocket() {
     window.socket = io('http://127.0.0.1:5052', {
         auth: {
-            token: localStorage.getItem('auth_token')
+            token: sessionStorage.getItem('auth_token')
         }
     });
     
@@ -64,7 +64,7 @@ function initSocket() {
         
         // 检查是否有保存的令牌，如果有则在连接后验证其有效性
         // 但只在页面加载后第一次连接时验证，避免重连时反复验证
-        const savedToken = localStorage.getItem('auth_token');
+        const savedToken = sessionStorage.getItem('auth_token');
         if (savedToken && window.auth && typeof window.auth.checkTokenValidity === 'function') {
             // 检查是否是首次加载后的连接
             if (!window.hasValidatedTokenOnce) {
@@ -73,49 +73,48 @@ function initSocket() {
                         window.hasValidatedTokenOnce = true;
                     });
                 }, 2000); // 延迟2秒，确保连接稳定
-            } else {
-                // 重连后增加渐进式验证，先使用本地令牌验证恢复角色
-                try {
-                    const token = savedToken;
-                    // 尝试解析token，看是否能获取过期时间（客户端检查）
-                    const base64Url = token.split('.')[1];
-                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                    }).join(''));
+            }
+            // 重连后增加渐进式验证，先使用本地令牌验证恢复角色
+            try {
+                const token = savedToken;
+                // 尝试解析token，看是否能获取过期时间（客户端检查）
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const payload = JSON.parse(jsonPayload);
+                if (payload.exp) {
+                    const expTime = new Date(payload.exp * 1000);
+                    const now = new Date();
+                    const isExpired = expTime < now;
                     
-                    const payload = JSON.parse(jsonPayload);
-                    if (payload.exp) {
-                        const expTime = new Date(payload.exp * 1000);
-                        const now = new Date();
-                        const isExpired = expTime < now;
-                        
-                        // 如果本地验证令牌已过期，执行登出
-                        if (isExpired) {
-                            window.auth.logout();
-                            return;
-                        }
-                        
-                        // 恢复角色
-                        window.userRole = 'owner';
-                        if (window.auth) {
-                            window.auth.updateUIByRole();
-                        }
-                        
-                        // 在后台轻量级验证令牌
-                        setTimeout(() => {
-                            window.socket.emit('check_token', { token });
-                            
-                            window.socket.once('check_token', (response) => {
-                                if (!response.valid) {
-                                    window.auth.logout();
-                                }
-                            });
-                        }, 5000); // 延迟5秒，降低服务器负载
+                    // 如果本地验证令牌已过期，执行登出
+                    if (isExpired) {
+                        window.auth.logout();
+                        return;
                     }
-                } catch (e) {
-                    console.warn('重连后无法解析JWT令牌内容:', e);
+                    
+                    // 恢复角色
+                    window.userRole = 'owner';
+                    if (window.auth) {
+                        window.auth.updateUIByRole();
+                    }
+                    
+                    // 在后台轻量级验证令牌
+                    setTimeout(() => {
+                        window.socket.emit('check_token', { token });
+                        
+                        window.socket.once('check_token', (response) => {
+                            if (!response.valid) {
+                                window.auth.logout();
+                            }
+                        });
+                    }, 5000); // 延迟5秒，降低服务器负载
                 }
+            } catch (e) {
+                console.warn('重连后无法解析JWT令牌内容:', e);
             }
         }
     });

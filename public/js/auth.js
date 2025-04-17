@@ -53,7 +53,7 @@ function updateUIByRole() {
 
 // 检查JWT令牌是否有效
 function checkTokenValidity() {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     if (!token) {
         // 没有token，用户角色设为游客
         console.log('没有找到令牌，设置用户角色为guest');
@@ -101,7 +101,7 @@ function checkTokenValidity() {
         }
         
         // 如果客户端验证通过，且距离上次服务器验证时间不到3分钟，直接使用客户端验证结果
-        const lastValidationTime = parseInt(localStorage.getItem('last_token_validation_time') || '0');
+        const lastValidationTime = parseInt(sessionStorage.getItem('last_token_validation_time') || '0');
         const now = Date.now();
         const timeSinceLastValidation = now - lastValidationTime;
         const validationCooldown = 3 * 60 * 1000; // 增加到3分钟
@@ -138,7 +138,7 @@ function checkTokenValidity() {
                         updateUIByRole();
                         
                         // 记录最后一次验证时间
-                        localStorage.setItem('last_token_validation_time', Date.now().toString());
+                        sessionStorage.setItem('last_token_validation_time', Date.now().toString());
                         
                         resolve(true);
                     } else {
@@ -213,8 +213,8 @@ function startTokenValidityCheck() {
 
 // 登出功能
 function logout() {
-    // 删除localStorage中的token
-    localStorage.removeItem('auth_token');
+    // 删除sessionStorage中的token
+    sessionStorage.removeItem('auth_token');
     
     // 更新用户角色
     window.userRole = 'guest';
@@ -255,16 +255,16 @@ function initLoginButton() {
         window.socket.once('verify_password', (response) => {
             console.log('收到验证响应:', response, '时间:', new Date().toLocaleString());
             
-            if (response.success && response.token) {
+            if (response.success) {
                 console.log('验证成功,保存JWT令牌');
                 
                 // 保存JWT令牌
-                localStorage.setItem('auth_token', response.token);
-                console.log('JWT令牌已保存到localStorage');
+                sessionStorage.setItem('auth_token', response.token);
+                console.log('JWT令牌已保存到sessionStorage');
                 
                 if (response.expires) {
                     console.log('令牌过期时间:', response.expires);
-                    localStorage.setItem('auth_token_expires', response.expires);
+                    sessionStorage.setItem('auth_token_expires', response.expires);
                 }
                 
                 // 标记已通过验证的标志，防止重连时反复验证
@@ -332,7 +332,7 @@ function initAuth() {
     }
     
     // 检查是否有保存的令牌并验证其有效性
-    const savedToken = localStorage.getItem('auth_token');
+    const savedToken = sessionStorage.getItem('auth_token');
     if (savedToken) {
         console.log('初始化认证模块时发现保存的令牌，将用于Socket连接');
         
@@ -368,7 +368,7 @@ function initAuth() {
                     console.log('初始化后根据本地令牌验证设置用户角色为:', window.userRole);
                     
                     // 记录本地验证时间
-                    localStorage.setItem('last_token_validation_time', now.getTime().toString());
+                    sessionStorage.setItem('last_token_validation_time', now.getTime().toString());
                 }
             } catch (e) {
                 console.warn('无法解析JWT令牌内容:', e);
