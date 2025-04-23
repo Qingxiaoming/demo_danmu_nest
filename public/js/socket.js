@@ -9,7 +9,17 @@ window.hasValidatedTokenOnce = false; // 添加令牌验证标志
 
 // 初始化Socket连接
 function initSocket() {
-    window.socket = io('http://127.0.0.1:5052', {
+    // 使用当前页面域名和端口作为Socket连接地址
+    // 获取当前网站的协议、主机名和端口
+    const protocol = window.location.protocol === 'https:' ? 'https://' : 'http://';
+    const hostname = window.location.hostname; // 自动适应任何访问地址
+    const port = '5052'; // 保持原有端口
+    
+    // 构建连接URL
+    const socketUrl = `${protocol}${hostname}:${port}`;
+    console.log('连接到Socket服务器:', socketUrl);
+    
+    window.socket = io(socketUrl, {
         auth: {
             token: sessionStorage.getItem('auth_token')
         }
