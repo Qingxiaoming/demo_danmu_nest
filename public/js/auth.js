@@ -49,6 +49,12 @@ function updateUIByRole() {
     if (window.ui && window.ui.checkPermissions) {
         window.ui.checkPermissions();
     }
+    
+    // 触发登录状态改变事件
+    const loginStateEvent = new CustomEvent('loginStateChanged', {
+        detail: { isAuthenticated: isAuthenticated }
+    });
+    document.dispatchEvent(loginStateEvent);
 }
 
 // 检查JWT令牌是否有效

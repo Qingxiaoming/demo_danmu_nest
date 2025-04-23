@@ -71,9 +71,24 @@ function initDraggableGif() {
     const dragElement = document.getElementById("draggable-gif-container");
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     
-    if (dragElement) {
-        dragElement.onmousedown = dragMouseDown;
+    if (!dragElement) return;
+    
+    // 设置初始位置 - 确保在移动设备上有一个合理的初始位置
+    // 如果没有自定义位置，将其放在右上角
+    if (!dragElement.style.top && !dragElement.style.left) {
+        dragElement.style.top = "20px";
+        dragElement.style.right = "20px";
+        dragElement.style.left = "auto"; // 确保left不会覆盖right
     }
+    
+    // 添加触屏支持，确保元素可以被移动
+    dragElement.style.touchAction = "none";
+    
+    // 添加鼠标事件
+    dragElement.onmousedown = dragMouseDown;
+    
+    // 添加触摸事件
+    dragElement.addEventListener('touchstart', dragTouchStart, { passive: false });
     
     function dragMouseDown(e) {
         e = e || window.event;
@@ -86,6 +101,19 @@ function initDraggableGif() {
         document.onmousemove = elementDrag;
     }
     
+    function dragTouchStart(e) {
+        e.preventDefault(); // 阻止默认的触摸行为，如滚动
+        
+        // 获取第一个触摸点的位置
+        const touch = e.touches[0];
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        
+        // 添加触摸事件监听器
+        document.addEventListener('touchmove', elementTouchDrag, { passive: false });
+        document.addEventListener('touchend', closeTouchDragElement, { passive: false });
+    }
+    
     function elementDrag(e) {
         e = e || window.event;
         e.preventDefault();
@@ -95,15 +123,67 @@ function initDraggableGif() {
         pos3 = e.clientX;
         pos4 = e.clientY;
         // 设置元素的新位置
-        dragElement.style.top = (dragElement.offsetTop - pos2) + "px";
-        dragElement.style.left = (dragElement.offsetLeft - pos1) + "px";
+        moveElement();
+    }
+    
+    function elementTouchDrag(e) {
+        e.preventDefault();
+        
+        // 获取第一个触摸点的位置
+        const touch = e.touches[0];
+        
+        // 计算新位置
+        pos1 = pos3 - touch.clientX;
+        pos2 = pos4 - touch.clientY;
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        
+        // 设置元素的新位置
+        moveElement();
+    }
+    
+    function moveElement() {
+        // 获取当前位置
+        let newTop = dragElement.offsetTop - pos2;
+        let newLeft = dragElement.offsetLeft - pos1;
+        
+        // 确保不会拖出屏幕
+        newTop = Math.max(0, Math.min(window.innerHeight - dragElement.offsetHeight, newTop));
+        newLeft = Math.max(0, Math.min(window.innerWidth - dragElement.offsetWidth, newLeft));
+        
+        // 设置新位置
+        dragElement.style.top = newTop + "px";
+        dragElement.style.left = newLeft + "px";
+        // 当设置left时，确保清除right属性
+        dragElement.style.right = "auto";
     }
     
     function closeDragElement() {
-        // 停止移动
+        // 停止鼠标移动
         document.onmouseup = null;
         document.onmousemove = null;
     }
+    
+    function closeTouchDragElement() {
+        // 移除触摸事件监听器
+        document.removeEventListener('touchmove', elementTouchDrag);
+        document.removeEventListener('touchend', closeTouchDragElement);
+    }
+    
+    // 在窗口大小改变时重新定位元素，确保不超出屏幕
+    window.addEventListener('resize', () => {
+        // 获取当前位置
+        let newTop = parseInt(dragElement.style.top) || 0;
+        let newLeft = parseInt(dragElement.style.left) || 0;
+        
+        // 确保不会超出屏幕
+        newTop = Math.max(0, Math.min(window.innerHeight - dragElement.offsetHeight, newTop));
+        newLeft = Math.max(0, Math.min(window.innerWidth - dragElement.offsetWidth, newLeft));
+        
+        // 设置新位置
+        dragElement.style.top = newTop + "px";
+        dragElement.style.left = newLeft + "px";
+    });
 }
 
 // 读取本地存储中的快捷键设置

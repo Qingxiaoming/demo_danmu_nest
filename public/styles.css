@@ -626,10 +626,18 @@ body {
     transition: opacity 0.3s ease;
 }
 
-/* 工作状态时间样式 */
+/* 状态时间的脉冲动画 */
+@keyframes pulse-opacity {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+/* 移除旧的工作时间样式 */
 .working-time {
+    /* 只保留特定的颜色和动画，其他继承自.status-time */
     color: #8a2be2; /* 紫色，与工作状态相匹配 */
-    animation: pulse 2s infinite;
+    animation: pulse-opacity 2s infinite;
 }
 
 /* 暂停状态时间样式 */
@@ -640,18 +648,6 @@ body {
 /* 挂起状态时间样式 */
 .pending-time {
     color: #ff6200; /* 橙色，与挂起状态相匹配 */
-}
-
-/* 状态时间的脉冲动画 */
-@keyframes pulse {
-    0% { opacity: 0.8; }
-    50% { opacity: 1; }
-    100% { opacity: 0.8; }
-}
-
-/* 移除旧的工作时间样式 */
-.working-time {
-    /* 只保留特定的颜色和动画，其他继承自.status-time */
 }
 
 /* 截屏工具样式 */
@@ -760,14 +756,38 @@ body {
 /* 截图工具通知 */
 #capture-notification {
     position: fixed;
-    bottom: 20px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: rgba(50, 50, 50, 0.9);
     color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    z-index: 100001;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-    transition: opacity 0.3s ease;
+    z-index: 10000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* 捕获工具按钮过渡效果 */
+.capture-tool-btn {
+    transition: all 0.3s ease;
+}
+
+/* 捕获按钮录制状态 */
+.capture-tool-btn.recording {
+    animation: pulse 1.5s infinite;
+    background-color: #e74c3c; /* 录制状态使用红色背景 */
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1.1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1.1);
+    }
 }

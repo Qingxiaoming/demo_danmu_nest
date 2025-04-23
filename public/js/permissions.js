@@ -28,6 +28,8 @@ window.permissions = (function() {
         'settings-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.ALWAYS },
         'login-btn': { role: ROLES.GUEST, eyeState: STATES.CLOSED },
         'logout-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.OPEN },
+        'capture-tool-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'capture-menu': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
         
         // 表单元素
         'login-form': { role: ROLES.ALL, eyeState: STATES.ALWAYS },

@@ -460,10 +460,10 @@ const danmuModule = {
                     }
                 }
             });
-            
+
             // 修改tabIndex以支持Tab键导航
             itemDiv.tabIndex = 0;
-            
+
             // 将弹幕项添加到文档片段
             fragment.appendChild(itemDiv);
             
@@ -472,7 +472,7 @@ const danmuModule = {
                 newSelectedItem = itemDiv;
             }
         });
-        
+                        
         // 清空现有内容并一次性添加所有新元素
         danmuContainer.innerHTML = '';
         danmuContainer.appendChild(fragment);
@@ -500,12 +500,12 @@ const danmuModule = {
                     return;
                 }
             }
-            
+        
             // 如果没有可恢复的选中项，选择第一个可见项
             const firstItem = danmuContainer.children[0];
             requestAnimationFrame(() => {
                 firstItem.classList.add('selected');
-                this.currentSelectedDanmuItem = firstItem;
+            this.currentSelectedDanmuItem = firstItem;
             });
         }
         
@@ -545,7 +545,7 @@ const danmuModule = {
         // 将DOM操作放在requestAnimationFrame中以避免布局抖动
         requestAnimationFrame(() => {
             // 添加新的选择
-            item.classList.add('selected');
+        item.classList.add('selected');
             
             // 温和地设置焦点，避免过快的DOM变化
             setTimeout(() => {
@@ -613,6 +613,12 @@ const danmuModule = {
                 window.permissions.manageMusicPlayerVisibility();
             }
         }
+        
+        // 触发眼睛状态改变事件，让其他模块可以响应
+        const eyeStateEvent = new CustomEvent('eyeStateChanged', {
+            detail: { isEyeOpen: this.showNonWaiting }
+        });
+        document.dispatchEvent(eyeStateEvent);
         
         // 重新渲染弹幕列表
         this.renderDanmu(this.currentDanmuData);
@@ -722,11 +728,11 @@ const danmuModule = {
         };
         
         // 显示弹幕操作按钮容器
-        const btnContainer = document.querySelector('.add-danmu-btn-container');
-        if (btnContainer) {
-            btnContainer.style.display = 'flex';
-        }
-        
+            const btnContainer = document.querySelector('.add-danmu-btn-container');
+            if (btnContainer) {
+                btnContainer.style.display = 'flex';
+            }
+            
         // 初始化所有按钮
         initSortButton();
         initToggleButton();

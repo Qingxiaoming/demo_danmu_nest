@@ -20,6 +20,34 @@ window.captureModule = {
     init() {
         console.log('初始化截屏/录屏工具');
         this.createCaptureButton();
+
+        // 监听眼睛状态变化和登录状态变化，更新按钮显示状态
+        document.addEventListener('eyeStateChanged', this.updateButtonVisibility.bind(this));
+        document.addEventListener('loginStateChanged', this.updateButtonVisibility.bind(this));
+        
+        // 初始化时立即检查一次显示状态
+        setTimeout(() => this.updateButtonVisibility(), 500);
+    },
+    
+    // 更新按钮可见性
+    updateButtonVisibility() {
+        const captureBtn = document.getElementById('capture-tool-btn');
+        const menu = document.getElementById('capture-menu');
+        if (!captureBtn) return;
+        
+        // 只在登录且闭眼状态下显示按钮
+        const isAuthenticated = window.userRole === 'owner';
+        const isEyeOpen = window.danmu && window.danmu.showNonWaiting;
+        
+        if (isAuthenticated && !isEyeOpen) {
+            captureBtn.style.display = '';
+        } else {
+            captureBtn.style.display = 'none';
+            // 如果菜单处于显示状态，也隐藏菜单
+            if (menu && menu.classList.contains('show')) {
+                menu.classList.remove('show');
+            }
+        }
     },
     
     // 创建截屏工具按钮
@@ -33,6 +61,7 @@ window.captureModule = {
         captureBtn.className = 'capture-tool-btn';
         captureBtn.innerHTML = '<i class="fas fa-camera"></i>';
         captureBtn.title = '截图/录屏工具';
+        captureBtn.style.display = 'none'; // 默认隐藏，稍后根据状态显示
         
         // 创建菜单
         const menu = document.createElement('div');
@@ -578,11 +607,11 @@ window.captureModule = {
         
         if (isRecording) {
             btn.innerHTML = '<i class="fas fa-stop"></i>';
-            btn.style.backgroundColor = '#e74c3c';
+            btn.classList.add('recording');
             btn.title = '停止录制';
         } else {
             btn.innerHTML = '<i class="fas fa-camera"></i>';
-            btn.style.backgroundColor = '';
+            btn.classList.remove('recording');
             btn.title = '截图/录屏工具';
         }
     },
@@ -602,16 +631,22 @@ window.captureModule = {
         notification.id = 'capture-notification';
         notification.textContent = message;
         
+        // 设置通知初始样式
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(-50%) translateY(20px)';
+        
         document.body.appendChild(notification);
         
-        // 显示通知
+        // 显示通知并添加过渡效果
         setTimeout(() => {
             notification.style.opacity = '1';
+            notification.style.transform = 'translateX(-50%) translateY(0)';
         }, 10);
         
         // 3秒后自动消失
         setTimeout(() => {
             notification.style.opacity = '0';
+            notification.style.transform = 'translateX(-50%) translateY(20px)';
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.parentNode.removeChild(notification);
