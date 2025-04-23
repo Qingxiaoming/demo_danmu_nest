@@ -6,8 +6,32 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import * as csurf from 'csurf';
 import { EnhancedLoggerService } from './core/services/logger.service';
 import { ValidationPipe } from '@nestjs/common';
+import { spawn } from 'child_process';
 
 async function bootstrap() {
+  // 在应用启动前执行数据库修复脚本
+  try {
+    console.log('正在执行数据库修复脚本...');
+    const dbFix = spawn('node', ['scripts/db-fix.js']);
+    
+    dbFix.stdout.on('data', (data) => {
+      console.log(`数据库修复输出: ${data}`);
+    });
+    
+    dbFix.stderr.on('data', (data) => {
+      console.error(`数据库修复错误: ${data}`);
+    });
+    
+    await new Promise<void>((resolve) => {
+      dbFix.on('close', (code) => {
+        console.log(`数据库修复脚本执行完成，退出码: ${code}`);
+        resolve();
+      });
+    });
+  } catch (error) {
+    console.error('执行数据库修复脚本失败:', error);
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // 启用全局验证管道
@@ -21,7 +45,7 @@ async function bootstrap() {
   // 配置 Swagger 文档
   const config = new DocumentBuilder()
     .setTitle('音乐弹幕 API')
-    .setDescription('音乐弹幕系统 API 文档')
+    .setDescription('API 文档')
     .setVersion('1.0')
     .addTag('音乐', '音乐搜索和播放相关接口')
     .addTag('弹幕', '弹幕发送和管理相关接口')

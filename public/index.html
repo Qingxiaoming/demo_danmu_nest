@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>----</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="css/player.css">
@@ -63,17 +66,38 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
     
     <!-- 应用模块 -->
-    <script src="js/utils.js"></script>
-    <script src="js/timer.js"></script>
-    <script src="js/permissions.js"></script>
-    <script src="js/socket.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/danmu.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/ui.js"></script>
+    <script src="js/utils.js?v=1.0.1"></script>
+    <script src="js/timer.js?v=1.0.1"></script>
+    <script src="js/permissions.js?v=1.0.1"></script>
+    <script src="js/socket.js?v=1.0.1"></script>
+    <script src="js/auth.js?v=1.0.1"></script>
+    <script src="js/danmu.js?v=1.0.1"></script>
+    <script src="js/player.js?v=1.0.1"></script>
+    <script src="js/ui.js?v=1.0.1"></script>
     
     <!-- 初始化应用 -->
     <script>
+        // 强制刷新缓存
+        function clearCache() {
+            console.log('强制清除浏览器缓存...');
+            if (window.caches) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            // 添加时间戳查询参数到脚本文件以防止缓存
+            document.querySelectorAll('script[src*="js/"]').forEach(script => {
+                if (!script.src.includes('?v=')) {
+                    script.src = script.src + '?v=' + Date.now();
+                }
+            });
+        }
+        
+        // 尝试清除缓存
+        clearCache();
+        
         // 页面加载完成后初始化应用
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化Socket连接

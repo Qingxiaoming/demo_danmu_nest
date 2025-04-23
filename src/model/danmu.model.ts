@@ -28,4 +28,13 @@ export class Danmu extends Model<Danmu> {
 
   @Column(DataType.DATE)
   pendingTime: string;
+
+  @Column(DataType.DATE)
+  pauseTime: string;
+
+  @Column({
+    type: DataType.INTEGER,
+    defaultValue: 0
+  })
+  workingDuration: number;
 }

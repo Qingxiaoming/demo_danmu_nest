@@ -387,13 +387,19 @@ window.timerModule = {
         const timerDisplay = document.getElementById('timer-display');
         const currentTime = this.formatTime(this.time);
         
-        // 替换为输入框
+        // 替换为输入框，支持更长的分钟数
         timerDisplay.innerHTML = `
             <input type="text" id="timer-time-input" value="${currentTime}" 
-                   placeholder="MM:SS" pattern="[0-9]{2}:[0-9]{2}">
+                   placeholder="MMM:SS" pattern="[0-9]{1,3}:[0-9]{2}">
         `;
         
         const inputElement = document.getElementById('timer-time-input');
+        
+        // 调整输入框样式以适应更长的分钟显示
+        inputElement.style.width = '100%';
+        inputElement.style.fontSize = '36px'; // 与显示的字体大小保持一致
+        inputElement.style.textAlign = 'center';
+        
         inputElement.focus();
         inputElement.select();
         
@@ -419,29 +425,38 @@ window.timerModule = {
         if (!inputElement) return;
         
         const timeValue = inputElement.value;
-        const timePattern = /^(\d{1,2}):(\d{2})$/;
+        // 修改正则表达式，支持1-3位数的分钟
+        const timePattern = /^(\d{1,3}):(\d{2})$/;
         const match = timeValue.match(timePattern);
         
         if (match) {
             const minutes = parseInt(match[1]);
             const seconds = parseInt(match[2]);
-            const totalSeconds = minutes * 60 + seconds;
             
-            // 更新时间
-            if (this.isCountdown) {
-                this.targetTime = totalSeconds;
-                this.time = totalSeconds;
+            // 验证分钟和秒的有效范围
+            if (minutes >= 0 && minutes <= 999 && seconds >= 0 && seconds < 60) {
+                const totalSeconds = minutes * 60 + seconds;
+                
+                // 更新时间
+                if (this.isCountdown) {
+                    this.targetTime = totalSeconds;
+                    this.time = totalSeconds;
+                } else {
+                    this.time = totalSeconds;
+                }
+                
+                // 更新角标显示
+                this.updateBadgeDisplay();
+                
+                // 保存状态
+                this.saveState();
+                
+                console.log(`设置时间为: ${minutes}分${seconds}秒`);
             } else {
-                this.time = totalSeconds;
+                console.warn('无效的时间值，分钟应在0-999之间，秒应在0-59之间');
             }
-            
-            // 更新角标显示
-            this.updateBadgeDisplay();
-            
-            // 保存状态
-            this.saveState();
-            
-            console.log(`设置时间为: ${minutes}分${seconds}秒`);
+        } else {
+            console.warn('无效的时间格式，应为MMM:SS');
         }
         
         // 恢复显示
@@ -621,11 +636,19 @@ window.timerModule = {
         console.log(`切换到${this.isCountdown ? '倒计时' : '正计时'}模式`);
     },
     
-    // 格式化时间为 MM:SS
+    // 格式化时间为 MMM:SS（支持3位数分钟）
     formatTime(seconds) {
         const mins = Math.floor(Math.abs(seconds) / 60);
         const secs = Math.abs(seconds) % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        // 根据分钟数的位数动态调整显示格式
+        if (mins >= 100) {
+            // 三位数分钟，不需填充前导零
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            // 一位数或两位数分钟，保持填充两位
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
     },
     
     // 更新显示

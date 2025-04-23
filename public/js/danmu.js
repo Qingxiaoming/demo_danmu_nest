@@ -46,6 +46,42 @@ const danmuModule = {
         }
     },
 
+    // 格式化时间为"月-日 时:分"格式
+    formatTime(timeStr) {
+        if (!timeStr) return '未知时间';
+        
+        try {
+            // 尝试解析yyyy-MM-dd HH:mm:ss格式
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+                const [datePart, timePart] = timeStr.split(' ');
+                const dateComponents = datePart.split('-');
+                const timeComponents = timePart.split(':');
+                
+                // 提取月、日、时、分
+                const month = dateComponents[1];
+                const day = dateComponents[2];
+                const hour = timeComponents[0];
+                const minute = timeComponents[1];
+                
+                return `${month}-${day} ${hour}:${minute}`;
+            } else {
+                // 尝试解析为日期对象
+                const date = new Date(timeStr);
+                if (!isNaN(date.getTime())) {
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    return `${month}-${day} ${hours}:${minutes}`;
+                }
+            }
+        } catch (error) {
+            console.error('格式化时间出错:', error);
+        }
+        
+        return '未知时间';
+    },
+
     // 渲染弹幕列表
     renderDanmu(data) {
         const danmuContainer = document.getElementById('danmu-container');
@@ -127,12 +163,22 @@ const danmuModule = {
                 case 'resume':
                     window.socket.emit('resume', { index: uid });
                     break;
+                case 'working':
+                    window.socket.emit('working', { index: uid });
+                    break;
+                case 'pause':
+                    window.socket.emit('pause', { index: uid });
+                    break;
+                case 'resume_working':
+                    window.socket.emit('resume_working', { index: uid });
+                    break;
                 default:
                     break;
             }
         };
         
-        danmuContainer.innerHTML = ''; // 清空现有内容
+        // 使用文档片段，减少DOM重绘次数
+        const fragment = document.createDocumentFragment();
 
         // 创建可排序的数组
         const items = [];
@@ -168,9 +214,6 @@ const danmuModule = {
             });
         }
         
-        // 调试日志，查看排序之前的数组
-        console.log('排序前的弹幕条目:', items.length, '个');
-        
         try {
             // 根据创建时间排序
             items.sort((a, b) => {
@@ -193,13 +236,13 @@ const danmuModule = {
                 // 根据排序方向返回比较结果
                 return this.sortByTimeAsc ? (timeA - timeB) : (timeB - timeA);
             });
-            
-            // 调试日志，查看排序之后的数组
-            console.log('排序后的弹幕条目:', items.length, '个, 排序方式:', this.sortByTimeAsc ? '升序' : '降序');
         } catch (error) {
             console.error('排序过程中发生错误:', error);
             console.log('保持原有顺序显示');
         }
+        
+        // 使用批量处理减少渲染次数
+        let newSelectedItem = null;
         
         // 根据排序后的数组渲染弹幕
         items.forEach(item => {
@@ -224,14 +267,170 @@ const danmuModule = {
             itemDiv.setAttribute('data-status', data.status[index]);
             // 添加data-uid属性
             itemDiv.setAttribute('data-uid', uid);
+            
+            // 设置弹幕内容
+            itemDiv.innerHTML = `
+                <span class="nickname">${data.nickname[index]}: </span>
+                <span class="text">${data.text[index]}</span>
+                <span class="status">      ${data.status[index]}</span>
+                <span class="createtime">----${this.formatTime(data.createtime[index])}</span>
+            `;
+            
+            // 添加状态时间信息（如果适用）
+            if ((data.status[index] === 'pending' || data.status[index] === 'working' || data.status[index] === 'pause') && 
+                data.pendingTime && data.pendingTime[index]) {
+                try {
+                    let timeDisplay = '';
+                    
+                    // 解析pending时间
+                    const pendingDate = this.parseTimeString(data.pendingTime[index]);
+                    if (!isNaN(pendingDate.getTime())) {
+                        const now = new Date();
+                        // 基础时间 = 服务器提供的工作时长
+                        const workingDuration = data.workingDuration && data.workingDuration[index] 
+                            ? Number(data.workingDuration[index]) 
+                            : 0;
+                        const baseMinutes = Math.floor(workingDuration / 60);
+                        
+                        if (data.status[index] === 'pause' && data.pauseTime && data.pauseTime[index]) {
+                            // 暂停状态使用动态计时
+                            const pauseDate = this.parseTimeString(data.pauseTime[index]);
+                            if (!isNaN(pauseDate.getTime())) {
+                                const pauseMinutes = Math.floor((now - pauseDate) / (1000 * 60));
+                                timeDisplay = ` <span class="status-time pause-time" 
+                                                    data-start-time="${pauseDate.getTime()}" 
+                                                    data-base-minutes="0">
+                                                    (已暂停${pauseMinutes}min)
+                                                </span>`;
+                            } else {
+                                timeDisplay = ` <span class="status-time">(已暂停)</span>`;
+                            }
+                        } else if (data.status[index] === 'working') {
+                            // 工作状态使用动态计时
+                            timeDisplay = ` <span class="status-time working-time" 
+                                                data-start-time="${pendingDate.getTime()}" 
+                                                data-base-minutes="${baseMinutes}">
+                                                (已工作${baseMinutes}min)
+                                            </span>`;
+                        } else if (data.status[index] === 'pending') {
+                            // 挂起状态使用动态计时
+                            const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
+                            timeDisplay = ` <span class="status-time pending-time" 
+                                                data-start-time="${pendingDate.getTime()}" 
+                                                data-base-minutes="0">
+                                                (${pendingMinutes}min)
+                                            </span>`;
+                        }
+                        
+                        // 标记此项需要动态更新时间
+                        itemDiv.setAttribute('data-needs-time-update', 'true');
+                        itemDiv.setAttribute('data-status-type', data.status[index]);
+                        
+                        // 添加时间信息到状态元素
+                        const statusEl = itemDiv.querySelector('.status');
+                        if (statusEl) {
+                            statusEl.innerHTML += timeDisplay;
+                        }
+                    }
+                } catch (error) {
+                    console.error('计算状态时间出错:', error);
+                }
+            }
+            
+            // 只有认证用户才能看到操作按钮
+            if (window.userRole === 'owner') {
+                const actions = document.createElement('div');
+                actions.className = 'actions';
+
+                // 挂起/恢复按钮
+                const pendingBtn = document.createElement('button');
+                if (data.status[index] === 'pending') {
+                    pendingBtn.textContent = '恢复';
+                    pendingBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        handleDanmuAction('resume', uid); 
+                    };
+                } else {
+                    pendingBtn.textContent = '挂起';
+                    pendingBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        handleDanmuAction('pending', uid); 
+                    };
+                }
+
+                // 开始/暂停工作按钮
+                const workingBtn = document.createElement('button');
+                if (data.status[index] === 'working') {
+                    workingBtn.textContent = '暂停';
+                    workingBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        handleDanmuAction('pause', uid); 
+                    };
+                } else if (data.status[index] === 'pause') {
+                    workingBtn.textContent = '恢复';
+                    workingBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        handleDanmuAction('resume_working', uid); 
+                    };
+                } else {
+                    workingBtn.textContent = '开始';
+                    workingBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        handleDanmuAction('working', uid); 
+                    };
+                }
+
+                // 删除按钮
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    handleDanmuAction('delete', uid); 
+                };
+
+                // 编辑按钮
+                const editBtn = document.createElement('button');
+                editBtn.textContent = '编辑';
+                editBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    handleDanmuAction('edit', uid, data.text[index]); 
+                };
+
+                // 完成按钮
+                const completedBtn = document.createElement('button');
+                completedBtn.textContent = '完成';
+                completedBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    handleDanmuAction('completed', uid); 
+                };
+                
+                // 账密按钮
+                const ac_ps_Btn = document.createElement('button');
+                ac_ps_Btn.textContent = '账密';
+                ac_ps_Btn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    handleDanmuAction('get_acps', uid); 
+                };
+
+                actions.appendChild(pendingBtn);
+                actions.appendChild(workingBtn);
+                actions.appendChild(deleteBtn);
+                actions.appendChild(completedBtn);
+                actions.appendChild(editBtn);
+                actions.appendChild(ac_ps_Btn);
+                itemDiv.appendChild(actions);
+            }
+            
             // 添加点击事件处理
-            itemDiv.addEventListener('click', (e) => {
+            let clickHandler = (e) => {
                 e.stopPropagation();
                 this.handleDanmuItemSelection(itemDiv);
-            });
-            // 修改tabIndex以支持Tab键导航
-            itemDiv.tabIndex = 0;
-            // 优化Tab键导航
+            };
+            
+            // 使用事件委托，减少事件监听器数量
+            itemDiv.addEventListener('click', clickHandler, { passive: true });
+            
+            // 添加Tab键导航和快捷键支持
             itemDiv.addEventListener('keydown', (e) => {
                 if (e.key === 'Tab') {
                     this.handleTabNavigation(itemDiv, e);
@@ -261,185 +460,53 @@ const danmuModule = {
                     }
                 }
             });
-
-            // 添加焦点事件处理
-            itemDiv.addEventListener('focus', () => {
-                this.handleDanmuItemSelection(itemDiv);
-            });
             
-            // 昵称
-            const nickname = document.createElement('span');
-            nickname.textContent = `${data.nickname[index]}: `;
-            nickname.className = 'nickname';
-
-            // 弹幕内容
-            const text = document.createElement('span');
-            text.textContent = `${data.text[index]}`;
-            text.className = 'text';
-
-            // 状态
-            const status = document.createElement('span');
-            status.textContent = `      ${data.status[index]}`;
-            status.className = 'status';
-
-            // 如果状态是pending(挂起)，显示挂起时间
-            if (data.status[index] === 'pending' && data.pendingTime && data.pendingTime[index]) {
-                try {
-                    // 尝试直接使用挂起时间字符串格式化显示
-                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(data.pendingTime[index])) {
-                        // 解析格式化的字符串为日期对象，计算挂起时间
-                        const [datePart, timePart] = data.pendingTime[index].split(' ');
-                        const [year, month, day] = datePart.split('-').map(Number);
-                        const [hour, minute, second] = timePart.split(':').map(Number);
-                        
-                        const pendingDate = new Date(year, month - 1, day, hour, minute, second);
-                        const now = new Date();
-                        
-                        // 计算已挂起的时间（分钟）
-                        const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
-                        
-                        // 创建挂起时间显示元素
-                        const pendingTimeElem = document.createElement('span');
-                        pendingTimeElem.className = 'pending-time';
-                        pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
-                        
-                        // 添加到状态元素后面
-                        status.appendChild(pendingTimeElem);
-                    } else {
-                        // 尝试解析其他格式的时间
-                        const pendingDate = new Date(data.pendingTime[index]);
-                        if (!isNaN(pendingDate.getTime())) {
-                            const now = new Date();
-                            const pendingMinutes = Math.floor((now - pendingDate) / (1000 * 60));
-                            
-                            const pendingTimeElem = document.createElement('span');
-                            pendingTimeElem.className = 'pending-time';
-                            pendingTimeElem.textContent = ` (${pendingMinutes}min)`;
-                            
-                            status.appendChild(pendingTimeElem);
-                        }
-                    }
-                } catch (error) {
-                    console.error('计算挂起时间出错:', error);
-                }
-            }
-
-            // 创建时间
-            const createtime = document.createElement('span');
-            // 格式化时间显示
-            const timeStr = data.createtime[index];
-            if (timeStr && typeof timeStr === 'string') {
-                try {
-                    // 尝试直接显示yyyy-MM-dd HH:mm:ss格式时间，转换为"月-日 时:分"格式
-                    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(timeStr)) {
-                        const [datePart, timePart] = timeStr.split(' ');
-                        const dateComponents = datePart.split('-');
-                        const timeComponents = timePart.split(':');
-                        
-                        // 提取月、日、时、分
-                        const month = dateComponents[1];
-                        const day = dateComponents[2];
-                        const hour = timeComponents[0];
-                        const minute = timeComponents[1];
-                        
-                        createtime.textContent = `----${month}-${day} ${hour}:${minute}`;
-                    } else {
-                        // 尝试解析为日期对象再格式化
-                        const date = new Date(timeStr);
-                        if (!isNaN(date.getTime())) {
-                            const month = String(date.getMonth() + 1).padStart(2, '0');
-                            const day = String(date.getDate()).padStart(2, '0');
-                            const hours = String(date.getHours()).padStart(2, '0');
-                            const minutes = String(date.getMinutes()).padStart(2, '0');
-                            createtime.textContent = `----${month}-${day} ${hours}:${minutes}`;
-                        } else {
-                            createtime.textContent = `----未知时间`;
-                            console.warn('无效的日期对象:', timeStr);
-                        }
-                    }
-                } catch (error) {
-                    createtime.textContent = `----未知时间`;
-                    console.error('格式化时间出错:', error);
-                }
-            } else {
-                // 如果时间字符串异常，提供一个默认值
-                createtime.textContent = `----未知时间`;
-                console.warn('时间格式异常:', timeStr);
-            }
-            createtime.className = 'createtime';
-
-            // 只有认证用户才能看到操作按钮
-            if (window.userRole === 'owner') {
-                const actions = document.createElement('div');
-                actions.className = 'actions';
-
-                // 挂起/恢复按钮
-                const pendingBtn = document.createElement('button');
-                if (data.status[index] === 'pending') {
-                    pendingBtn.textContent = '恢复';
-                    pendingBtn.onclick = () => handleDanmuAction('resume', uid);
-                } else {
-                    pendingBtn.textContent = '挂起';
-                    pendingBtn.onclick = () => handleDanmuAction('pending', uid);
-                }
-
-                // 删除按钮
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = '删除';
-                deleteBtn.onclick = () => handleDanmuAction('delete', uid);
-
-                // 编辑按钮
-                const editBtn = document.createElement('button');
-                editBtn.textContent = '编辑';
-                editBtn.onclick = () => handleDanmuAction('edit', uid, data.text[index]);
-
-                // 完成按钮
-                const completedBtn = document.createElement('button');
-                completedBtn.textContent = '完成';
-                completedBtn.onclick = () => handleDanmuAction('completed', uid);
-                
-                // 账密按钮
-                const ac_ps_Btn = document.createElement('button');
-                ac_ps_Btn.textContent = '账密';
-                ac_ps_Btn.onclick = () => handleDanmuAction('get_acps', uid);
-                
-
-                actions.appendChild(pendingBtn);
-                itemDiv.appendChild(actions);
-                actions.appendChild(deleteBtn);
-                actions.appendChild(completedBtn);
-                actions.appendChild(editBtn);
-                actions.appendChild(ac_ps_Btn);
-
-            }
-
-            itemDiv.appendChild(nickname);
-            itemDiv.appendChild(text);
-            itemDiv.appendChild(status);
-            itemDiv.appendChild(createtime);
-
-            danmuContainer.appendChild(itemDiv);
+            // 修改tabIndex以支持Tab键导航
+            itemDiv.tabIndex = 0;
             
-            // 如果这个项目是之前选中的项目，恢复选中状态
-            if (selectedUid && uid === selectedUid) {
-                this.currentSelectedDanmuItem = itemDiv;
-                itemDiv.classList.add('selected');
-                // 使用setTimeout确保DOM完全渲染后再设置焦点
-                setTimeout(() => {
-                    itemDiv.focus();
-                }, 0);
+            // 将弹幕项添加到文档片段
+            fragment.appendChild(itemDiv);
+            
+            // 如果这是之前选中的项，记录下来
+            if (uid === selectedUid) {
+                newSelectedItem = itemDiv;
             }
         });
         
-        // 如果渲染后没有找到之前选中的项目（可能因为过滤或其他原因），但有其他项目可选
-        if (selectedUid && !this.currentSelectedDanmuItem && danmuContainer.children.length > 0) {
-            // 选择第一个可见的项目
+        // 清空现有内容并一次性添加所有新元素
+        danmuContainer.innerHTML = '';
+        danmuContainer.appendChild(fragment);
+        
+        // 恢复选中状态
+        if (newSelectedItem) {
+            // 使用requestAnimationFrame确保DOM更新后再选中
+            requestAnimationFrame(() => {
+                // 只应用CSS类，不进行完整的handleDanmuItemSelection调用，减少不必要的操作
+                newSelectedItem.classList.add('selected');
+                // 更新引用但不触发其他操作
+                this.currentSelectedDanmuItem = newSelectedItem;
+            });
+        } else if (selectedUid && danmuContainer.children.length > 0) {
+            // 如果找不到之前选中的项，尝试从会话存储中恢复
+            const savedSelectedUid = sessionStorage.getItem('selected_danmu_uid');
+            if (savedSelectedUid) {
+                // 查找保存的uid对应的元素
+                const savedItem = danmuContainer.querySelector(`[data-uid="${savedSelectedUid}"]`);
+                if (savedItem) {
+                    requestAnimationFrame(() => {
+                        savedItem.classList.add('selected');
+                        this.currentSelectedDanmuItem = savedItem;
+                    });
+                    return;
+                }
+            }
+            
+            // 如果没有可恢复的选中项，选择第一个可见项
             const firstItem = danmuContainer.children[0];
-            this.currentSelectedDanmuItem = firstItem;
-            firstItem.classList.add('selected');
-            setTimeout(() => {
-                firstItem.focus();
-            }, 0);
+            requestAnimationFrame(() => {
+                firstItem.classList.add('selected');
+                this.currentSelectedDanmuItem = firstItem;
+            });
         }
         
         // 更新排序按钮图标
@@ -448,12 +515,54 @@ const danmuModule = {
 
     // 处理弹幕项选择的通用函数
     handleDanmuItemSelection(item) {
+        // 检查是否为有效元素
+        if (!item || !(item instanceof HTMLElement)) {
+            console.warn('尝试选择无效的弹幕项元素');
+            return;
+        }
+        
+        // 如果已经选中，不做任何操作
+        if (this.currentSelectedDanmuItem === item) {
+            return;
+        }
+        
+        // 防止过快重复点击
+        if (this._selectionDebounce) {
+            return;
+        }
+        
+        // 设置防抖标志，250ms后清除（减少为更好的响应性）
+        this._selectionDebounce = true;
+        setTimeout(() => {
+            this._selectionDebounce = false;
+        }, 250);
+        
+        // 取消之前的选择
         if (this.currentSelectedDanmuItem && (this.currentSelectedDanmuItem !== item)) {
             this.currentSelectedDanmuItem.classList.remove('selected');
         }
-        item.classList.add('selected');
-        item.focus();
+        
+        // 将DOM操作放在requestAnimationFrame中以避免布局抖动
+        requestAnimationFrame(() => {
+            // 添加新的选择
+            item.classList.add('selected');
+            
+            // 温和地设置焦点，避免过快的DOM变化
+            setTimeout(() => {
+                if (document.activeElement !== item) {
+                    item.focus({ preventScroll: false });
+                }
+            }, 30);
+        });
+        
+        // 更新当前选中项引用
         this.currentSelectedDanmuItem = item;
+        
+        // 存储选中项的uid到会话存储，使其在渲染后能被恢复
+        const uid = item.getAttribute('data-uid');
+        if (uid) {
+            sessionStorage.setItem('selected_danmu_uid', uid);
+        }
     },
 
     // 处理Tab键导航的通用函数
@@ -597,6 +706,7 @@ const danmuModule = {
                 }
             }
         };
+        
         // 初始化切换按钮
         const initToggleButton = () => {
             const toggleBtn = document.getElementById('toggle-btn');
@@ -612,17 +722,78 @@ const danmuModule = {
         };
         
         // 显示弹幕操作按钮容器
-            const btnContainer = document.querySelector('.add-danmu-btn-container');
-            if (btnContainer) {
-                btnContainer.style.display = 'flex';
-            }
-            
+        const btnContainer = document.querySelector('.add-danmu-btn-container');
+        if (btnContainer) {
+            btnContainer.style.display = 'flex';
+        }
+        
         // 初始化所有按钮
         initSortButton();
         initToggleButton();
         
+        // 启动工作时间更新计时器
+        this.startWorkingTimeUpdater();
+        
         // 使用权限系统更新初始UI状态
         window.auth.updateUIByRole();
+    },
+
+    // 启动工作时间动态更新
+    startWorkingTimeUpdater() {
+        // 清除可能存在的旧计时器
+        if (this._workingTimeUpdateInterval) {
+            clearInterval(this._workingTimeUpdateInterval);
+        }
+        
+        // 创建新的计时器，每5秒更新一次工作时间显示
+        this._workingTimeUpdateInterval = setInterval(() => {
+            this.updateWorkingTimes();
+        }, 5000);
+    },
+
+    // 更新所有带时间显示的状态
+    updateWorkingTimes() {
+        // 查找所有需要更新时间的元素
+        const itemsWithTime = document.querySelectorAll('.danmu-item[data-needs-time-update="true"]');
+        
+        if (itemsWithTime.length === 0) return;
+        
+        const now = Date.now();
+        
+        itemsWithTime.forEach(item => {
+            const statusType = item.getAttribute('data-status-type');
+            const timeElement = item.querySelector('.status-time');
+            if (!timeElement) return;
+            
+            try {
+                // 获取开始时间和基础分钟数
+                const startTime = parseInt(timeElement.getAttribute('data-start-time'), 10);
+                const baseMinutes = parseInt(timeElement.getAttribute('data-base-minutes'), 10) || 0;
+                
+                if (isNaN(startTime)) return;
+                
+                // 计算经过的时间（分钟）
+                const elapsedMinutes = Math.floor((now - startTime) / (1000 * 60));
+                
+                // 根据状态类型更新不同的显示文本
+                switch (statusType) {
+                    case 'working':
+                        timeElement.textContent = `(已工作${baseMinutes + elapsedMinutes}min)`;
+                        break;
+                    case 'pause':
+                        timeElement.textContent = `(已暂停${elapsedMinutes}min)`;
+                        break;
+                    case 'pending':
+                        timeElement.textContent = `(${elapsedMinutes}min)`;
+                        break;
+                    default:
+                        // 对于未知状态类型，使用通用格式
+                        timeElement.textContent = `(${baseMinutes + elapsedMinutes}min)`;
+                }
+            } catch (error) {
+                console.error('更新状态时间出错:', error);
+            }
+        });
     }
 };
 

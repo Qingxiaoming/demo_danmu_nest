@@ -1139,4 +1139,160 @@ export class DanmuGateway implements OnGatewayInit, OnGatewayConnection {
     }
   }
 
+  /**
+   * 处理弹幕工作中状态事件
+   */
+  @SubscribeMessage('working')
+  async handleWorking(client: Socket, payload: any) {
+    try {
+      const index = payload?.index;
+      
+      if (!index) {
+        this.logger.warn('开始工作请求缺少必要参数', { 
+          clientId: client.id, 
+          payload,
+          errorCode: E.INVALID_PARAMS.error
+        });
+        throw E.INVALID_PARAMS;
+      }
+      
+      this.logger.log('处理开始工作请求', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的开始工作操作', { 
+          clientId: client.id, 
+          danmuId: index,
+          errorCode: E.AUTH_FAILED.error
+        });
+        throw E.AUTH_FAILED;
+      }
+
+      const result = await this.danmuService.updateStatus(index, 'working');
+      this.server.emit('working', result);
+      this.logger.log('开始工作操作成功', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      return { success: true };
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        danmuId: payload?.index,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      this.logger.error('开始工作操作失败', errorInfo);
+      return handleWsError(error);
+    }
+  }
+  
+  /**
+   * 处理弹幕暂停工作状态事件
+   */
+  @SubscribeMessage('pause')
+  async handlePause(client: Socket, payload: any) {
+    try {
+      const index = payload?.index;
+      
+      if (!index) {
+        this.logger.warn('暂停工作请求缺少必要参数', { 
+          clientId: client.id, 
+          payload,
+          errorCode: E.INVALID_PARAMS.error
+        });
+        throw E.INVALID_PARAMS;
+      }
+      
+      this.logger.log('处理暂停工作请求', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的暂停工作操作', { 
+          clientId: client.id, 
+          danmuId: index,
+          errorCode: E.AUTH_FAILED.error
+        });
+        throw E.AUTH_FAILED;
+      }
+
+      const result = await this.danmuService.updateStatus(index, 'pause');
+      this.server.emit('pause', result);
+      this.logger.log('暂停工作操作成功', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      return { success: true };
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        danmuId: payload?.index,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      this.logger.error('暂停工作操作失败', errorInfo);
+      return handleWsError(error);
+    }
+  }
+  
+  /**
+   * 处理弹幕恢复工作状态事件
+   */
+  @SubscribeMessage('resume_working')
+  async handleResumeWorking(client: Socket, payload: any) {
+    try {
+      const index = payload?.index;
+      
+      if (!index) {
+        this.logger.warn('恢复工作请求缺少必要参数', { 
+          clientId: client.id, 
+          payload,
+          errorCode: E.INVALID_PARAMS.error
+        });
+        throw E.INVALID_PARAMS;
+      }
+      
+      this.logger.log('处理恢复工作请求', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      
+      if (!this.isAuthenticated(client)) {
+        this.logger.warn('未授权的恢复工作操作', { 
+          clientId: client.id, 
+          danmuId: index,
+          errorCode: E.AUTH_FAILED.error
+        });
+        throw E.AUTH_FAILED;
+      }
+
+      const result = await this.danmuService.updateStatus(index, 'working');
+      this.server.emit('resume_working', result);
+      this.logger.log('恢复工作操作成功', { 
+        clientId: client.id, 
+        danmuId: index 
+      });
+      return { success: true };
+    } catch (error) {
+      const errorInfo = {
+        clientId: client.id,
+        danmuId: payload?.index,
+        errorCode: error.error || E.UNDEFINED.error,
+        errorMessage: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+      
+      this.logger.error('恢复工作操作失败', errorInfo);
+      return handleWsError(error);
+    }
+  }
+
 }

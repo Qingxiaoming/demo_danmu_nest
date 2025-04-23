@@ -22,7 +22,8 @@
     "logs:app": "node scripts/view-logs.js application-$(date +%Y-%m-%d).log",
     "logs:error": "node scripts/view-logs.js error-$(date +%Y-%m-%d).log",
     "logs:security": "node scripts/view-logs.js security.log",
-    "logs:filter": "node scripts/view-logs.js --filter"
+    "logs:filter": "node scripts/view-logs.js --filter",
+    "db:fix": "node scripts/db-fix.js"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",

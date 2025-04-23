@@ -129,7 +129,7 @@ function setupSocketEvents() {
     const socketEvents = [
         'update', 'get_acps', 'add_danmu', 
         'play_selected_song', 'song_search_results', 
-        'pending', 'resume'
+        'pending', 'resume', 'working', 'pause', 'resume_working'
     ];
     
     // 为每个事件添加监听器
@@ -144,10 +144,15 @@ function setupSocketEvents() {
 function handleSocketEvent(eventName, data) {
     switch(eventName) {
         case 'update':
-            window.danmu.currentDanmuData = data; // 保存最新数据
-            // 只有在没有显示对话框时才重新渲染
-            if (!window.danmu.isShowingDialog) {
-                window.danmu.renderDanmu(data);
+            // 保存最新数据前进行深度比较，避免不必要的渲染
+            const hasChanges = needsUpdate(window.danmu.currentDanmuData, data);
+            // 只有在确实有数据变化或当前没有数据时才更新和渲染
+            if (hasChanges) {
+                window.danmu.currentDanmuData = data; // 保存最新数据
+                // 只有在没有显示对话框时才重新渲染
+                if (!window.danmu.isShowingDialog) {
+                    window.danmu.renderDanmu(data);
+                }
             }
             break;
             
@@ -174,6 +179,24 @@ function handleSocketEvent(eventName, data) {
         case 'resume':
             if (!data || !data.success) {
                 console.error('弹幕恢复失败:', data?.message);
+            }
+            break;
+            
+        case 'working':
+            if (!data || !data.success) {
+                console.error('开始工作失败:', data?.message);
+            }
+            break;
+            
+        case 'pause':
+            if (!data || !data.success) {
+                console.error('暂停工作失败:', data?.message);
+            }
+            break;
+            
+        case 'resume_working':
+            if (!data || !data.success) {
+                console.error('恢复工作失败:', data?.message);
             }
             break;
             
@@ -237,6 +260,98 @@ function handleSocketEvent(eventName, data) {
             console.log(`未处理的事件: ${eventName}`, data);
             break;
     }
+}
+
+/**
+ * 比较新旧数据，决定是否需要更新UI
+ * @param {Object} oldData 旧数据
+ * @param {Object} newData 新数据
+ * @returns {boolean} 是否需要更新
+ */
+function needsUpdate(oldData, newData) {
+    // 如果没有旧数据，需要更新
+    if (!oldData) return true;
+    
+    // 如果新数据为空，不需要更新
+    if (!newData) return false;
+    
+    // 检查弹幕数量是否有变化
+    if (!oldData.uid || !newData.uid || oldData.uid.length !== newData.uid.length) {
+        return true;
+    }
+    
+    // 检查选中项状态是否有改变
+    if (window.danmu.currentSelectedDanmuItem) {
+        const selectedUid = window.danmu.currentSelectedDanmuItem.getAttribute('data-uid');
+        if (selectedUid) {
+            const oldIndex = oldData.uid.indexOf(selectedUid);
+            const newIndex = newData.uid.indexOf(selectedUid);
+            
+            // 如果选中项存在于两个数据中，检查其状态是否有变化
+            if (oldIndex !== -1 && newIndex !== -1) {
+                if (oldData.status[oldIndex] !== newData.status[newIndex]) {
+                    return true; // 状态改变，需要更新
+                }
+                
+                if (oldData.text[oldIndex] !== newData.text[newIndex]) {
+                    return true; // 文本改变，需要更新
+                }
+
+                // 只有在工作时间实际改变时才更新工作状态
+                if (newData.status[newIndex] === 'working') {
+                    // 只在工作时长实际变化时更新UI
+                    const oldWorkingDuration = oldData.workingDuration && oldData.workingDuration[oldIndex] 
+                        ? Number(oldData.workingDuration[oldIndex]) : 0;
+                    const newWorkingDuration = newData.workingDuration && newData.workingDuration[newIndex] 
+                        ? Number(newData.workingDuration[newIndex]) : 0;
+                    
+                    // 工作时长每30秒才更新一次界面，而不是每次轮询都更新
+                    return Math.abs(newWorkingDuration - oldWorkingDuration) >= 30;
+                }
+            }
+        }
+    }
+    
+    // 检查是否有新的项目被添加
+    const oldUids = new Set(oldData.uid);
+    const newUids = new Set(newData.uid);
+    
+    for (const uid of newUids) {
+        if (!oldUids.has(uid)) {
+            return true; // 新增项目
+        }
+    }
+    
+    // 检查是否有项目被删除
+    for (const uid of oldUids) {
+        if (!newUids.has(uid)) {
+            return true; // 删除项目
+        }
+    }
+    
+    // 检查是否有状态变化（只有状态实际变化才更新）
+    for (let i = 0; i < newData.uid.length; i++) {
+        const uid = newData.uid[i];
+        const oldIndex = oldData.uid.indexOf(uid);
+        
+        // 如果找不到老ID或状态有变化，需要更新
+        if (oldIndex === -1) {
+            return true;
+        }
+        
+        // 状态变化需要更新
+        if (oldData.status[oldIndex] !== newData.status[i]) {
+            return true;
+        }
+        
+        // 文本变化需要更新
+        if (oldData.text[oldIndex] !== newData.text[i]) {
+            return true;
+        }
+    }
+    
+    // 默认情况下，如果没有检测到明显变化，不进行更新
+    return false;
 }
 
 // 导出Socket模块

@@ -39,6 +39,13 @@ body {
     border: 1px solid #ccc;
     border-radius: 5px;
     position: relative;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    will-change: box-shadow, border-color, background-color;
+    contain: layout style;
+    cursor: pointer;
+    overflow: hidden;
 }
 
 .danmu-item .nickname {
@@ -55,6 +62,7 @@ body {
     position: absolute;
     top: 10px;
     right: 10px;
+    transition: color 0.3s ease;
 }
 
 /* 基于状态的颜色 */
@@ -64,6 +72,14 @@ body {
 
 .danmu-item[data-status="pending"] .status {
     color: #ff6200; /* 黄色/橙色 */
+}
+
+.danmu-item[data-status="working"] .status {
+    color: #8a2be2; /* 紫色 */
+}
+
+.danmu-item[data-status="pause"] .status {
+    color: #6c757d; /* 灰色 */
 }
 
 .danmu-item[data-status="completed"] .status {
@@ -80,6 +96,15 @@ body {
 
 .danmu-item[data-status="pending"] {
     border-left: 3px solid #ffa500;
+}
+
+.danmu-item[data-status="working"] {
+    border-left: 3px solid #8a2be2;
+    contain: layout;
+}
+
+.danmu-item[data-status="pause"] {
+    border-left: 3px solid #6c757d;
 }
 
 .danmu-item[data-status="completed"] {
@@ -310,7 +335,7 @@ body {
 .danmu-item:focus {
     outline: none;
     box-shadow: 0 0 8px rgba(74, 144, 226, 0.3);
-    transform: translateY(-1px);
+    border-color: #4a90e2;
     transition: all 0.2s ease;
 }
 
@@ -318,11 +343,16 @@ body {
     background-color: #f0f8ff;
     border-color: #4a90e2;
     box-shadow: 0 0 8px rgba(74, 144, 226, 0.3);
-    transform: translateY(-1px);
+    transition: all 0.15s ease;
+    z-index: 1;
+    background-image: linear-gradient(to bottom, #f0f8ff, #e6f2ff);
+    will-change: transform, opacity;
+    contain: layout style paint;
 }
 
 .danmu-item.selected:focus {
     box-shadow: 0 0 12px rgba(74, 144, 226, 0.4);
+    transition: box-shadow 0.15s ease;
 }
 
 /* 认证相关容器样式 */
@@ -398,7 +428,7 @@ body {
     color: white;
     z-index: 1000;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    width: 220px;
+    width: 240px;
     cursor: default;
     user-select: none;
 }
@@ -429,6 +459,8 @@ body {
     padding: 5px;
     border-radius: 5px;
     transition: background-color 0.2s ease;
+    min-width: 120px;
+    width: 100%;
 }
 
 .timer-display:hover {
@@ -446,6 +478,7 @@ body {
     padding: 5px;
     border-radius: 5px;
     outline: none;
+    min-width: 120px;
 }
 
 .timer-controls {
@@ -581,4 +614,42 @@ body {
 
 .stop-music-btn i {
     font-size: 18px;
+}
+
+/* 所有状态时间的通用样式 */
+.status-time {
+    display: inline-block;
+    font-weight: bold;
+    font-style: italic;
+    margin-left: 3px;
+    /* 平滑过渡 */
+    transition: opacity 0.3s ease;
+}
+
+/* 工作状态时间样式 */
+.working-time {
+    color: #8a2be2; /* 紫色，与工作状态相匹配 */
+    animation: pulse 2s infinite;
+}
+
+/* 暂停状态时间样式 */
+.pause-time {
+    color: #6c757d; /* 灰色，与暂停状态相匹配 */
+}
+
+/* 挂起状态时间样式 */
+.pending-time {
+    color: #ff6200; /* 橙色，与挂起状态相匹配 */
+}
+
+/* 状态时间的脉冲动画 */
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+/* 移除旧的工作时间样式 */
+.working-time {
+    /* 只保留特定的颜色和动画，其他继承自.status-time */
 }

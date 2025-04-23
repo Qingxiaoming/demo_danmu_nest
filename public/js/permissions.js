@@ -54,6 +54,9 @@ window.permissions = (function() {
     // 弹幕状态显示规则
     const danmuStatusRules = {
         'waiting': { closedEye: true, openEye: true },   // 等待状态：闭眼和睁眼都显示
+        'pending': { closedEye: true, openEye: true },   // 挂起状态：闭眼和睁眼都显示
+        'working': { closedEye: true, openEye: true },   // 工作状态：闭眼和睁眼都显示
+        'pause': { closedEye: true, openEye: true },     // 暂停状态：闭眼和睁眼都显示
         'completed': { closedEye: false, openEye: true }, // 完成状态：仅睁眼显示
         'deleted': { closedEye: false, openEye: true }    // 删除状态：仅睁眼显示
     };
