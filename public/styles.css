@@ -791,3 +791,18 @@ body {
         transform: scale(1.1);
     }
 }
+
+/* iPad悬浮窗按钮样式 */
+.ipad-floating-btn {
+    display: none !important;
+}
+
+/* iPad滑动指示器样式 */
+#swipe-indicator {
+    display: none !important;
+}
+
+/* PiP反馈提示样式 */
+.pip-feedback {
+    display: none !important;
+}

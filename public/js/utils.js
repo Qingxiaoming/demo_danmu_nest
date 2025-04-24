@@ -284,6 +284,43 @@ function initStopMusicButton() {
     }
 }
 
+// 检测是否为iPad设备
+function isIPadDevice() {
+    // 检测是否为iPad
+    const isIPad = /iPad/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !window.MSStream);
+    
+    // 检测是否为非Windows设备
+    const isNotWindows = !/Win/.test(navigator.platform) && !/Windows/.test(navigator.userAgent);
+    
+    // 检测是否为iOS (iPhone也可以使用滑动手势)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                 
+    // 返回iPad或iOS设备且非Windows
+    return (isIPad || isIOS) && isNotWindows;
+}
+
+// 初始化iPad悬浮窗功能（不显示按钮和手势提示）
+function initIPadFloatingButton() {
+    // 如果不是iPad设备，不进行任何操作
+    if (!isIPadDevice()) {
+        return;
+    }
+    
+    // 只添加全屏和窗口控制功能的支持
+    const stageManager = document.createElement('meta');
+    stageManager.name = 'apple-mobile-web-app-capable';
+    stageManager.content = 'yes';
+    document.head.appendChild(stageManager);
+    
+    // 添加viewport meta标签以支持Stage Manager
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+        viewport.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no';
+    }
+}
+
 // 导出工具函数
 window.utils = {
     showConnectionStatus,
@@ -294,5 +331,7 @@ window.utils = {
     loadShortcutSettings,
     saveShortcutSettings,
     stopAllAudio,
-    initStopMusicButton
+    initStopMusicButton,
+    isIPadDevice,
+    initIPadFloatingButton
 }; 

@@ -2,14 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <!-- iOS特定meta标签 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="弹幕系统">
     <title>----</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="css/player.css">
     <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+    <!-- 添加Web App manifest -->
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <div id="draggable-gif-container" class="draggable-gif">
@@ -143,6 +149,9 @@
                 
                 // 初始化停止音乐按钮
                 window.utils.initStopMusicButton();
+                
+                // 初始化iPad悬浮窗按钮
+                window.utils.initIPadFloatingButton();
                 
                 // 清除可能导致定时器不显示的错误状态
                 console.log('检查定时器状态，尝试修复可能的错误状态');

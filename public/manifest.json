@@ -1,0 +1,19 @@
+{
+  "name": "弹幕系统",
+  "short_name": "弹幕",
+  "description": "弹幕管理系统",
+  "start_url": ".",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay"],
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "icons": [
+    {
+      "src": "images/favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "prefer_related_applications": false
+} 
