@@ -30,6 +30,10 @@ window.permissions = (function() {
         'logout-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.OPEN },
         'capture-tool-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
         'capture-menu': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'file-transfer-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'file-transfer-panel': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'toolbox-btn': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
+        'toolbox-container': { role: ROLES.AUTHENTICATED, eyeState: STATES.CLOSED },
         
         // 表单元素
         'login-form': { role: ROLES.ALL, eyeState: STATES.ALWAYS },

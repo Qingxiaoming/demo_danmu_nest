@@ -60,6 +60,13 @@
         <audio id="music-audio" style="display: none;"></audio>
     </div>
     
+    <!-- 工具箱和底部按钮区域 -->
+    <div id="toolbox-container" class="toolbox-container">
+        <button id="toolbox-btn" class="toolbox-btn" title="工具箱">
+            <i class="fas fa-tools"></i>
+        </button>
+    </div>
+    
     <!-- 停止音乐按钮 -->
     <button id="stop-music-btn" class="stop-music-btn" title="停止所有音频播放">
         <i class="fas fa-volume-mute"></i>
@@ -80,6 +87,7 @@
     <script src="js/danmu.js?v=1.0.1"></script>
     <script src="js/player.js?v=1.0.1"></script>
     <script src="js/capture.js?v=1.0.1"></script>
+    <script src="js/filetransfer.js?v=1.0.1"></script>
     <script src="js/ui.js?v=1.0.1"></script>
     
     <!-- 初始化应用 -->
@@ -149,6 +157,15 @@
                 
                 // 初始化停止音乐按钮
                 window.utils.initStopMusicButton();
+                
+                // 初始化工具箱
+                window.utils.initToolbox();
+                
+                // 初始化文件传输模块
+                if (window.fileTransferModule && typeof window.fileTransferModule.init === 'function') {
+                    window.fileTransferModule.init();
+                    console.log('文件传输模块初始化成功');
+                }
                 
                 // 初始化iPad悬浮窗按钮
                 window.utils.initIPadFloatingButton();

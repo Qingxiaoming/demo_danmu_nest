@@ -22,7 +22,17 @@ function initSocket() {
     window.socket = io(socketUrl, {
         auth: {
             token: sessionStorage.getItem('auth_token')
-        }
+        },
+        // 添加二进制数据处理相关的配置
+        binaryType: 'arraybuffer',
+        forceNew: false,
+        reconnectionAttempts: 5,
+        timeout: 20000,
+        // 添加重连逻辑
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.5
     });
     
     // 处理连接错误

@@ -32,38 +32,70 @@ window.captureModule = {
     // 更新按钮可见性
     updateButtonVisibility() {
         const captureBtn = document.getElementById('capture-tool-btn');
-        const menu = document.getElementById('capture-menu');
         if (!captureBtn) return;
         
-        // 只在登录且闭眼状态下显示按钮
-        const isAuthenticated = window.userRole === 'owner';
-        const isEyeOpen = window.danmu && window.danmu.showNonWaiting;
+        // 检查权限状态
+        const hasAccess = window.permissions && window.permissions.hasAccessToFeature('screenshot');
+        const eyeOpen = window.danmu && window.danmu.showNonWaiting;
         
-        if (isAuthenticated && !isEyeOpen) {
-            captureBtn.style.display = '';
+        if (hasAccess && !eyeOpen) {
+            // 不再修改display属性，而是让CSS处理可见性
+            // 但仍需确保按钮是可以被点击的
+            captureBtn.style.opacity = '';
+            captureBtn.style.pointerEvents = '';
         } else {
-            captureBtn.style.display = 'none';
-            // 如果菜单处于显示状态，也隐藏菜单
-            if (menu && menu.classList.contains('show')) {
-                menu.classList.remove('show');
+            // 强制隐藏按钮且禁用点击
+            captureBtn.style.opacity = '0';
+            captureBtn.style.pointerEvents = 'none';
+            
+            // 如果菜单正在显示，隐藏它
+            const captureMenu = document.getElementById('capture-menu');
+            if (captureMenu && captureMenu.classList.contains('show')) {
+                captureMenu.classList.remove('show');
             }
         }
     },
     
-    // 创建截屏工具按钮
+    // 创建截屏按钮
     createCaptureButton() {
-        // 检查是否已存在按钮
+        // 如果按钮已存在则不再创建
         if (document.getElementById('capture-tool-btn')) return;
         
-        // 创建主按钮
+        // 创建按钮元素
         const captureBtn = document.createElement('button');
         captureBtn.id = 'capture-tool-btn';
         captureBtn.className = 'capture-tool-btn';
+        captureBtn.title = '截屏/录屏工具';
         captureBtn.innerHTML = '<i class="fas fa-camera"></i>';
-        captureBtn.title = '截图/录屏工具';
-        captureBtn.style.display = 'none'; // 默认隐藏，稍后根据状态显示
         
-        // 创建菜单
+        // 获取工具箱容器并添加按钮
+        const toolboxContainer = document.getElementById('toolbox-container');
+        if (toolboxContainer) {
+            toolboxContainer.appendChild(captureBtn);
+        } else {
+            // 如果工具箱容器不存在，则添加到body
+            document.body.appendChild(captureBtn);
+        }
+        
+        // 点击事件 - 显示功能菜单
+        captureBtn.addEventListener('click', (event) => {
+            event.stopPropagation(); // 防止事件冒泡导致菜单立即关闭
+            this.toggleCaptureMenu();
+        });
+        
+        // 创建功能菜单
+        this.createCaptureMenu();
+        
+        // 初始化时检查一次按钮显示状态
+        this.updateButtonVisibility();
+    },
+    
+    // 创建截屏功能菜单
+    createCaptureMenu() {
+        // 如果菜单已存在则不再创建
+        if (document.getElementById('capture-menu')) return;
+        
+        // 创建菜单元素
         const menu = document.createElement('div');
         menu.id = 'capture-menu';
         menu.className = 'capture-menu';
@@ -80,24 +112,21 @@ window.captureModule = {
         `;
         
         // 添加到页面
-        document.body.appendChild(captureBtn);
         document.body.appendChild(menu);
         
-        // 添加事件监听
-        captureBtn.addEventListener('click', () => this.toggleMenu());
-        
+        // 添加菜单项点击事件
         document.getElementById('screenshot-full').addEventListener('click', () => {
-            this.hideMenu();
+            this.hideCaptureMenu();
             this.captureFullScreen();
         });
         
         document.getElementById('screenshot-area').addEventListener('click', () => {
-            this.hideMenu();
+            this.hideCaptureMenu();
             this.startAreaSelection();
         });
         
         document.getElementById('screen-record').addEventListener('click', () => {
-            this.hideMenu();
+            this.hideCaptureMenu();
             this.toggleScreenRecording();
         });
         
@@ -106,21 +135,37 @@ window.captureModule = {
             if (!e.target.closest('#capture-tool-btn') && 
                 !e.target.closest('#capture-menu') &&
                 menu.classList.contains('show')) {
-                this.hideMenu();
+                this.hideCaptureMenu();
             }
         });
     },
     
-    // 切换菜单显示
-    toggleMenu() {
+    // 切换截屏菜单显示/隐藏
+    toggleCaptureMenu() {
         const menu = document.getElementById('capture-menu');
-        menu.classList.toggle('show');
+        if (!menu) return;
+        
+        const captureBtn = document.getElementById('capture-tool-btn');
+        if (!captureBtn) return;
+        
+        if (menu.classList.contains('show')) {
+            this.hideCaptureMenu();
+        } else {
+            // 计算菜单显示位置 - 在按钮上方
+            const rect = captureBtn.getBoundingClientRect();
+            menu.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+            menu.style.left = rect.left + 'px';
+            
+            menu.classList.add('show');
+        }
     },
     
-    // 隐藏菜单
-    hideMenu() {
+    // 隐藏截屏菜单
+    hideCaptureMenu() {
         const menu = document.getElementById('capture-menu');
-        menu.classList.remove('show');
+        if (menu) {
+            menu.classList.remove('show');
+        }
     },
     
     // 全屏截图
@@ -600,19 +645,19 @@ window.captureModule = {
         this.recordedChunks = [];
     },
     
-    // 更新捕获按钮图标（录制中/非录制中）
+    // 更新截屏按钮图标（录制状态）
     updateCaptureButtonIcon(isRecording) {
-        const btn = document.getElementById('capture-tool-btn');
-        if (!btn) return;
+        const captureBtn = document.getElementById('capture-tool-btn');
+        if (!captureBtn) return;
         
         if (isRecording) {
-            btn.innerHTML = '<i class="fas fa-stop"></i>';
-            btn.classList.add('recording');
-            btn.title = '停止录制';
+            captureBtn.innerHTML = '<i class="fas fa-circle"></i>';
+            captureBtn.classList.add('recording');
+            captureBtn.title = '正在录制，点击停止';
         } else {
-            btn.innerHTML = '<i class="fas fa-camera"></i>';
-            btn.classList.remove('recording');
-            btn.title = '截图/录屏工具';
+            captureBtn.innerHTML = '<i class="fas fa-camera"></i>';
+            captureBtn.classList.remove('recording');
+            captureBtn.title = '截屏/录屏工具';
         }
     },
     

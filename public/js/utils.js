@@ -321,6 +321,81 @@ function initIPadFloatingButton() {
     }
 }
 
+// 初始化工具箱功能
+function initToolbox() {
+    console.log('初始化工具箱...');
+    
+    const toolboxContainer = document.getElementById('toolbox-container');
+    const toolboxBtn = document.getElementById('toolbox-btn');
+    let leaveTimer = null; // 用于存储鼠标离开的计时器
+    const delay = 200; // 延迟时间 (毫秒)
+    
+    if (!toolboxContainer || !toolboxBtn) {
+        console.error('工具箱容器或按钮未找到');
+        return;
+    }
+    
+    // 检查文件传输和截屏按钮是否已添加到工具箱
+    const fileTransferBtn = document.getElementById('file-transfer-btn');
+    const captureBtn = document.getElementById('capture-tool-btn');
+    
+    // 日志确认按钮状态
+    console.log('文件传输按钮:', fileTransferBtn ? '已找到' : '未找到');
+    console.log('截屏按钮:', captureBtn ? '已找到' : '未找到');
+    
+    // 判断是否为移动设备
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobileDevice) {
+        // --- 移动设备逻辑 --- 
+        toolboxBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toolboxContainer.classList.toggle('expanded');
+            console.log('移动设备: 工具箱展开状态已切换');
+        });
+        
+        // 确保子按钮点击不会关闭工具箱
+        [fileTransferBtn, captureBtn].forEach(btn => {
+            if (btn) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 阻止冒泡
+                    // 如果需要，可以在点击子按钮后关闭工具箱
+                    // toolboxContainer.classList.remove('expanded');
+                });
+            }
+        });
+        
+        // 点击外部区域收起工具箱
+        document.addEventListener('click', (event) => {
+            if (!toolboxContainer.contains(event.target)) {
+                toolboxContainer.classList.remove('expanded');
+            }
+        });
+        console.log('移动设备: 点击展开/收起逻辑已设置');
+        
+    } else {
+        // --- 桌面设备逻辑 --- 
+        toolboxContainer.addEventListener('mouseenter', () => {
+            // 清除可能存在的离开计时器
+            clearTimeout(leaveTimer);
+            // 添加展开类
+            toolboxContainer.classList.add('expanded');
+            console.log('桌面设备: 鼠标进入，展开工具箱');
+        });
+        
+        toolboxContainer.addEventListener('mouseleave', () => {
+            // 启动离开计时器
+            leaveTimer = setTimeout(() => {
+                toolboxContainer.classList.remove('expanded');
+                console.log('桌面设备: 鼠标离开，收起工具箱');
+            }, delay);
+        });
+        console.log('桌面设备: 悬停展开/收起逻辑已设置');
+    }
+    
+    console.log('工具箱初始化完成');
+}
+
 // 导出工具函数
 window.utils = {
     showConnectionStatus,
@@ -333,5 +408,6 @@ window.utils = {
     stopAllAudio,
     initStopMusicButton,
     isIPadDevice,
-    initIPadFloatingButton
+    initIPadFloatingButton,
+    initToolbox
 }; 
