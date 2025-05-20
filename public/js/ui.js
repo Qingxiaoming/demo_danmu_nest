@@ -143,10 +143,8 @@ function showSettingsDialog() {
     
     // 添加菜单项
     const settingsOptions = [
-        { id: 'theme', text: '主题', icon: 'fas fa-palette' },
-        { id: 'font', text: '字体', icon: 'fas fa-font' },
-        { id: 'display', text: '显示', icon: 'fas fa-desktop' },
-        { id: 'timer', text: '定时器', icon: 'fas fa-stopwatch' }
+        { id: 'theme', text: '主题设置', icon: 'fas fa-palette' },
+        { id: 'music', text: '点歌设置', icon: 'fas fa-music' }
     ];
     
     settingsOptions.forEach(item => {
@@ -174,16 +172,10 @@ function showSettingsDialog() {
             closeMenu();
             switch (item.id) {
                 case 'theme':
-                    showUISettings();
+                    showThemeSettings();
                     break;
-                case 'font':
-                    showUISettings();
-                    break;
-                case 'display':
-                    showUISettings();
-                    break;
-                case 'timer':
-                    showTimer();
+                case 'music':
+                    showMusicSettings();
                     break;
             }
         });
@@ -904,6 +896,12 @@ function checkPermissions() {
 function initUIEvents() {
     console.log('初始化UI事件');
     
+    // 初始化主题设置
+    const savedTheme = localStorage.getItem('theme') || 'default';
+    const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+    const savedOpacity = localStorage.getItem('danmuOpacity') || '100';
+    applyTheme(savedTheme, savedFontSize, savedOpacity);
+
     // 检查权限并显示定时器
     checkPermissions();
     
@@ -918,9 +916,10 @@ function initUIEvents() {
     }
 
     // 添加弹幕按钮点击事件
-    document.getElementById('add-danmu-btn').onclick = () => {
-        showAddDanmuDialog();
-    };
+    const addDanmuBtn = document.getElementById('add-danmu-btn');
+    if (addDanmuBtn) {
+        addDanmuBtn.addEventListener('click', showAddDanmuDialog);
+    }
 
     // 全局快捷键监听
     document.addEventListener('keydown', (e) => {
@@ -934,6 +933,177 @@ function initUIEvents() {
             e.preventDefault();
             document.getElementById('toggle-btn').click();
         }
+    });
+}
+
+// 显示主题设置对话框
+function showThemeSettings() {
+    // 设置对话框显示状态为true
+    window.danmu.isShowingDialog = true;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'acps-dialog-overlay';
+    document.body.appendChild(overlay);
+
+    const dialog = document.createElement('div');
+    dialog.className = 'acps-dialog';
+    dialog.innerHTML = `
+        <h3>主题设置</h3>
+        <div class="settings-item">
+            <label>主题颜色：</label>
+            <select id="theme-color">
+                <option value="default">默认</option>
+                <option value="dark">暗色</option>
+                <option value="light">亮色</option>
+                <option value="blue">蓝色</option>
+                <option value="green">绿色</option>
+                <option value="purple">紫色</option>
+            </select>
+        </div>
+        <div class="settings-item">
+            <label>字体大小：</label>
+            <select id="font-size">
+                <option value="small">小</option>
+                <option value="medium">中</option>
+                <option value="large">大</option>
+            </select>
+        </div>
+        <div class="settings-item">
+            <label>弹幕透明度：</label>
+            <input type="range" id="danmu-opacity" min="0" max="100" value="100">
+            <span id="opacity-value">100%</span>
+        </div>
+        <div class="settings-actions">
+            <button id="theme-save">保存</button>
+            <button id="theme-cancel">取消</button>
+        </div>
+    `;
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .settings-item {
+            margin-bottom: 15px;
+        }
+        .settings-item label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        .settings-item select,
+        .settings-item input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .settings-actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #theme-save {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #theme-save:hover {
+            background-color: #45a049;
+        }
+        #theme-cancel {
+            background-color: #f44336;
+            color: white;
+        }
+        #theme-cancel:hover {
+            background-color: #da190b;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 添加延时以触发动画
+    requestAnimationFrame(() => {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+    });
+
+    // 获取当前主题设置
+    const currentTheme = localStorage.getItem('theme') || 'default';
+    const currentFontSize = localStorage.getItem('fontSize') || 'medium';
+    const currentOpacity = localStorage.getItem('danmuOpacity') || '100';
+
+    // 设置当前值
+    dialog.querySelector('#theme-color').value = currentTheme;
+    dialog.querySelector('#font-size').value = currentFontSize;
+    dialog.querySelector('#danmu-opacity').value = currentOpacity;
+    dialog.querySelector('#opacity-value').textContent = currentOpacity + '%';
+
+    // 透明度滑块事件
+    const opacitySlider = dialog.querySelector('#danmu-opacity');
+    const opacityValue = dialog.querySelector('#opacity-value');
+    opacitySlider.addEventListener('input', (e) => {
+        opacityValue.textContent = e.target.value + '%';
+    });
+
+    // 保存按钮事件
+    dialog.querySelector('#theme-save').onclick = () => {
+        const theme = dialog.querySelector('#theme-color').value;
+        const fontSize = dialog.querySelector('#font-size').value;
+        const opacity = dialog.querySelector('#danmu-opacity').value;
+
+        // 保存设置
+        localStorage.setItem('theme', theme);
+        localStorage.setItem('fontSize', fontSize);
+        localStorage.setItem('danmuOpacity', opacity);
+
+        // 应用主题
+        applyTheme(theme, fontSize, opacity);
+
+        closeDialog();
+    };
+
+    // 取消按钮事件
+    dialog.querySelector('#theme-cancel').onclick = closeDialog;
+
+    // 关闭对话框
+    function closeDialog() {
+        overlay.classList.remove('show');
+        dialog.classList.remove('show');
+        setTimeout(() => {
+            overlay.remove();
+            dialog.remove();
+            window.danmu.isShowingDialog = false;
+        }, 300);
+    }
+
+    document.body.appendChild(dialog);
+}
+
+// 应用主题设置
+function applyTheme(theme, fontSize, opacity) {
+    // 移除所有主题类
+    document.body.classList.remove('theme-default', 'theme-dark', 'theme-light', 'theme-blue', 'theme-green', 'theme-purple');
+    
+    // 添加新主题类
+    document.body.classList.add(`theme-${theme}`);
+
+    // 应用字体大小
+    document.body.style.fontSize = {
+        'small': '14px',
+        'medium': '16px',
+        'large': '18px'
+    }[fontSize];
+
+    // 应用弹幕透明度
+    const danmuItems = document.querySelectorAll('.danmu-item');
+    danmuItems.forEach(item => {
+        item.style.opacity = opacity / 100;
     });
 }
 

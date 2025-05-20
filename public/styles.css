@@ -1,6 +1,8 @@
 body {
     font-family: Arial, sans-serif;
     margin: 16px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 .login-container, .toggle-container {
@@ -36,7 +38,7 @@ body {
 .danmu-item {
     margin-bottom: 10px;
     padding: 5px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     position: relative;
     transform: translateZ(0);
@@ -46,6 +48,12 @@ body {
     contain: layout style;
     cursor: pointer;
     overflow: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.danmu-item:hover {
+    background-color: var(--hover-color);
 }
 
 .danmu-item .nickname {
@@ -1295,4 +1303,88 @@ body {
 /* 移动端点击展开效果 (现在由JS统一处理，但保留类名以防万一) */
 @media (max-width: 768px) {
     /* 可以保留此媒体查询，以备将来针对移动端添加特定样式 */
+}
+
+/* 主题样式 */
+.theme-default {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --border-color: #cccccc;
+    --hover-color: #f0f0f0;
+    --accent-color: #4CAF50;
+}
+
+.theme-dark {
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --border-color: #333333;
+    --hover-color: #2d2d2d;
+    --accent-color: #4CAF50;
+}
+
+.theme-light {
+    --bg-color: #f5f5f5;
+    --text-color: #333333;
+    --border-color: #dddddd;
+    --hover-color: #e0e0e0;
+    --accent-color: #2196F3;
+}
+
+.theme-blue {
+    --bg-color: #e3f2fd;
+    --text-color: #1565c0;
+    --border-color: #90caf9;
+    --hover-color: #bbdefb;
+    --accent-color: #1976d2;
+}
+
+.theme-green {
+    --bg-color: #e8f5e9;
+    --text-color: #2e7d32;
+    --border-color: #a5d6a7;
+    --hover-color: #c8e6c9;
+    --accent-color: #388e3c;
+}
+
+.theme-purple {
+    --bg-color: #f3e5f5;
+    --text-color: #6a1b9a;
+    --border-color: #ce93d8;
+    --hover-color: #e1bee7;
+    --accent-color: #7b1fa2;
+}
+
+/* 应用主题变量 */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.danmu-item {
+    background-color: var(--bg-color);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.danmu-item:hover {
+    background-color: var(--hover-color);
+}
+
+.settings-menu-item:hover {
+    background-color: var(--hover-color);
+}
+
+button {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+button:hover {
+    background-color: var(--accent-color);
+    opacity: 0.9;
+}
+
+/* 弹幕透明度过渡效果 */
+.danmu-item {
+    transition: opacity 0.3s ease;
 }
